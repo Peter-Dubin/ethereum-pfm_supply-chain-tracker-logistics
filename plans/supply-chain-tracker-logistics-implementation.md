@@ -5,6 +5,40 @@
 
 ---
 
+## Progress Status (last updated: 2026-05-07)
+
+| Phase | Status | Commit | Notes |
+|---|---|---|---|
+| **1** — Scaffold | ✅ Done | `904d671` | Dirs, `.gitignore` (Foundry/Next.js/MCP patterns), MIT LICENSE |
+| **2** — Smart Contract | ✅ Done | `3bad467` | `LogisticsTracker.sol` + `Deploy.s.sol` + 58 tests (all green) |
+| **3** — Frontend | ⏳ Next | — | Start here: `create-next-app` in `web/`, then Web3 infra, then pages |
+| **4** — MCP Server | — | — | |
+| **5** — Seed Script | — | — | |
+| **6** — Documentation | — | — | |
+| **7** — Testnet + Submission | — | — | |
+
+### Phase 3 entry point
+
+```bash
+# Node 20 is required — activate via nvm before starting
+source ~/.nvm/nvm.sh && nvm use 20
+
+# From project root:
+npx create-next-app@latest web --typescript --tailwind --eslint --app --src-dir --import-alias "@/*" --no-git
+cd web
+npm install ethers@6 qrcode.react recharts leaflet react-leaflet
+npm install -D @types/leaflet
+npx shadcn-ui@latest init
+npx shadcn-ui@latest add button card select label badge input table dialog toast separator
+
+# Copy ABI after forge build:
+cp sc/out/LogisticsTracker.sol/LogisticsTracker.json web/src/contracts/
+```
+
+Build order within Phase 3: `contracts/config.ts` → `lib/web3.ts` → `Web3Context.tsx` → `useWallet.ts` → layout/landing → admin pages → dashboard → shipments → checkpoints → incidents → profile.
+
+---
+
 ## Prerequisites Verification
 
 ```bash

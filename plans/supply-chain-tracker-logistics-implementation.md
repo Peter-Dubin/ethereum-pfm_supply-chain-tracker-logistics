@@ -11,7 +11,7 @@
 |---|---|---|---|
 | **1** — Scaffold | ✅ Done | `904d671` | Dirs, `.gitignore` (Foundry/Next.js/MCP patterns), MIT LICENSE |
 | **2** — Smart Contract | ✅ Done | `3bad467` | `LogisticsTracker.sol` + `Deploy.s.sol` + 58 tests (all green) |
-| **3** — Frontend | ⏳ Next | — | Start here: `create-next-app` in `web/`, then Web3 infra, then pages |
+| **3** — Frontend | ✅ Done | `0085118` | Next.js 16 + shadcn/ui v4 + ethers v6 — all 8 pages, TrackingTimeline, zero build errors |
 | **4** — MCP Server | — | — | |
 | **5** — Seed Script | — | — | |
 | **6** — Documentation | — | — | |

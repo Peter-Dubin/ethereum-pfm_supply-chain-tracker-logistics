@@ -1,6 +1,22 @@
 # Claude Code
 .claude/
 
+# Foundry artifacts
+sc/out/
+sc/cache/
+sc/broadcast/
+sc/.env
+
+# Frontend (Next.js)
+web/node_modules/
+web/.next/
+web/.env
+web/.env.local
+
+# MCP server
+mcp-server/node_modules/
+mcp-server/dist/
+
 # Node modules
 node_modules/
 npm-debug.log*

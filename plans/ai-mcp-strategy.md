@@ -206,7 +206,7 @@ This lets Claude answer: *"What is the current status and route of shipment 3?"*
 **Template to fill during development:**
 
 ```markdown
-# AI Usage Documentation — GloboSend Express TFM
+# AI Usage Documentation — LogistChain TFM
 
 ## 1. AI Tools Used
 

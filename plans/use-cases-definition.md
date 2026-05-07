@@ -1,4 +1,4 @@
-# Use Cases Definition — GloboSend Express (Paquetería Express)
+# Use Cases Definition — LogistChain (Paquetería Express)
 
 > This document defines the fictional "world" of the DApp: company identity, registered actors, product types, and 5 concrete shipment scenarios. All demo data, smart contract test fixtures, and UI examples should use these definitions for consistency.
 
@@ -8,10 +8,10 @@
 
 | Field | Value |
 |---|---|
-| **Platform name** | GloboSend Express |
-| **Tagline** | "Every package, traced on-chain." |
+| **Platform name** | LogistChain |
+| **Tagline** | "The chain of trust." |
 | **Blockchain** | Ethereum (Sepolia Testnet for delivery / Anvil local for dev) |
-| **Admin** | GloboSend Central (Anvil account #0) |
+| **Admin** | LogistChain Central (Anvil account #0) |
 
 ---
 
@@ -19,7 +19,7 @@
 
 | # | Company Name | Role | Location | Anvil Account # |
 |---|---|---|---|---|
-| 0 | GloboSend Central | Admin | Madrid HQ | #0 (deployer) |
+| 0 | LogistChain Central | Admin | Madrid HQ | #0 (deployer) |
 | 1 | TechCorp S.L. | Sender | Parque Empresarial Las Rozas, Madrid | #1 |
 | 2 | MediSupply S.A. | Sender | Zona Industrial Badalona, Barcelona | #2 |
 | 3 | ExpressRide Courier | Carrier | Hub Central Madrid | #3 |
@@ -28,12 +28,12 @@
 | 6 | Hub Logístico Barcelona Norte | Hub | Av. Industrial 88, Montcada i Reixac, Barcelona | #6 |
 | 7 | Startup Innovations S.A. | Recipient | Barcelona Tech Campus, 22@ District | #7 |
 | 8 | Hospital Valle Verde | Recipient | Calle Salud 3, Alcorcón, Madrid | #8 |
-| 9 | Inspector García (QC) | Inspector | GloboSend HQ, Madrid | #9 |
+| 9 | Inspector García (QC) | Inspector | LogistChain HQ, Madrid | #9 |
 
 ### Anvil addresses for test fixtures
 
 ```solidity
-address admin     = 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266; // GloboSend Central
+address admin     = 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266; // LogistChain Central
 address sender1   = 0x70997970C51812dc3A010C7d01b50e0d17dc79C8; // TechCorp S.L.
 address sender2   = 0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC; // MediSupply S.A.
 address carrier1  = 0x90F79bf6EB2c4f870365E785982E1f101E93b906; // ExpressRide Courier

@@ -1,4 +1,4 @@
-# Implementation Plan — Supply Chain Tracker Logistics (GloboSend Express)
+# Implementation Plan — Supply Chain Tracker Logistics (LogistChain)
 
 > Step-by-step guide to scaffold, initialize, and build the project from an empty directory to a Sepolia-deployed, submission-ready DApp.  
 > Read `plans/requirements.md`, `plans/use-cases-definition.md`, and `plans/architecture.md` before starting.
@@ -134,7 +134,7 @@ sepolia = { key = "${ETHERSCAN_API_KEY}", url = "https://api-sepolia.etherscan.i
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-/// @title LogisticsTracker — GloboSend Express on-chain shipment tracker
+/// @title LogisticsTracker — LogistChain on-chain shipment tracker
 /// @notice Tracks courier-style shipments via checkpoints, incidents, and digital delivery confirmation
 contract LogisticsTracker {
 
@@ -721,7 +721,7 @@ Build pages in this order — each step builds on the previous:
 
 **`Header.tsx`:**
 ```tsx
-// Left: "GloboSend Express" logo + icon
+// Left: "LogistChain" logo + icon
 // Center: nav links (role-filtered)
 // Right: network badge + shortened address + disconnect button
 // Mobile: hamburger menu
@@ -1003,7 +1003,7 @@ NEXT_PUBLIC_ADMIN_ADDRESS=0x_your_deployer_address
 
 | Time | Content |
 |---|---|
-| 0:00–0:30 | "GloboSend Express: blockchain-based courier tracking. Shows shipment journey from sender to recipient with on-chain checkpoints, digital delivery confirmation, and incident management." |
+| 0:00–0:30 | "LogistChain: blockchain-based courier tracking. Shows shipment journey from sender to recipient with on-chain checkpoints, digital delivery confirmation, and incident management." |
 | 0:30–1:00 | Architecture diagram: Next.js → MetaMask → Sepolia → LogisticsTracker.sol |
 | 1:00–1:30 | Show MCP server: "I can ask Claude to run forge tests directly." — demonstrate one tool call |
 | 1:30–2:00 | Register actor, admin approves it |

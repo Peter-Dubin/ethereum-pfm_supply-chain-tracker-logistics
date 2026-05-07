@@ -1,4 +1,4 @@
-# Technical Architecture — Supply Chain Tracker Logistics (GloboSend Express)
+# Technical Architecture — Supply Chain Tracker Logistics (LogistChain)
 
 ---
 

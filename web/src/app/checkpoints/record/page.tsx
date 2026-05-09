@@ -18,10 +18,10 @@ const CHECKPOINT_TYPES = ['Pickup', 'Hub', 'Transit', 'Delivery'];
 
 const STATUS_OPTIONS = [
   { value: 'none', label: 'Keep current status' },
-  { value: String(ShipmentStatus.InTransit), label: 'Mark In Transit' },
-  { value: String(ShipmentStatus.AtHub), label: 'Mark At Hub' },
-  { value: String(ShipmentStatus.OutForDelivery), label: 'Mark Out for Delivery' },
-  { value: String(ShipmentStatus.Returned), label: 'Mark Returned' },
+  { value: STATUS_LABELS[ShipmentStatus.InTransit], label: 'Mark In Transit' },
+  { value: STATUS_LABELS[ShipmentStatus.AtHub], label: 'Mark At Hub' },
+  { value: STATUS_LABELS[ShipmentStatus.OutForDelivery], label: 'Mark Out for Delivery' },
+  { value: STATUS_LABELS[ShipmentStatus.Returned], label: 'Mark Returned' },
 ];
 
 function RecordCheckpointForm() {
@@ -105,7 +105,8 @@ function RecordCheckpointForm() {
       await tx.wait();
 
       if (newStatus !== 'none') {
-        const stx = await contract.updateShipmentStatus(BigInt(shipmentId), Number(newStatus));
+        const statusNum = (Object.entries(STATUS_LABELS) as [string, string][]).find(([, label]) => label === newStatus)?.[0];
+        const stx = await contract.updateShipmentStatus(BigInt(shipmentId), Number(statusNum ?? 0));
         await stx.wait();
       }
 

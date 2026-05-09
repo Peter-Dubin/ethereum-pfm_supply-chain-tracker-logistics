@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { useTheme } from 'next-themes';
 import {
   Package,
+  Gem,
   LayoutDashboard,
   Truck,
   AlertTriangle,
@@ -46,7 +47,7 @@ export function Header() {
       <div className="max-w-7xl mx-auto px-4 h-14 flex items-center justify-between gap-4">
         {/* Logo */}
         <Link href="/" className="flex items-center gap-2 font-bold text-lg shrink-0">
-          <Package className="size-5 text-primary" />
+          <Gem className="size-5 text-primary" />
           <span>LogistChain</span>
         </Link>
 

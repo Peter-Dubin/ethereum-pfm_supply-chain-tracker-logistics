@@ -14,8 +14,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { AlertTriangle, Loader2, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 
-const INCIDENT_TYPE_OPTIONS = Object.entries(INCIDENT_LABELS).map(([value, label]) => ({
-  value,
+const INCIDENT_TYPE_OPTIONS = Object.values(INCIDENT_LABELS).map((label) => ({
+  value: label,
   label,
 }));
 
@@ -74,7 +74,8 @@ function IncidentsContent() {
     setSubmitting(true);
     try {
       const { contract } = await getSignerAndContract();
-      const tx = await contract.reportIncident(BigInt(formShipmentId), Number(formType), formDesc.trim());
+      const incidentNum = (Object.entries(INCIDENT_LABELS) as [string, string][]).find(([, label]) => label === formType)?.[0];
+      const tx = await contract.reportIncident(BigInt(formShipmentId), Number(incidentNum ?? 0), formDesc.trim());
       toast.loading('Reporting incident…', { id: 'report' });
       await tx.wait();
       toast.success('Incident reported', { id: 'report' });

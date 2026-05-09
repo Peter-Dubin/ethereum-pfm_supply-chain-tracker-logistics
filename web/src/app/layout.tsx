@@ -17,7 +17,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "LogistChain — Blockchain Courier Tracking",
+  title: "LogistChain",
   description: "On-chain shipment tracking powered by Ethereum",
 };
 

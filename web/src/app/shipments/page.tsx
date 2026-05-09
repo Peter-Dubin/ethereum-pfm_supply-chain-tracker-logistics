@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useWallet } from '@/hooks/useWallet';
 import { getContract } from '@/lib/web3';
-import { Shipment, ShipmentStatus, ActorRole, parseShipment } from '@/types';
+import { Shipment, ShipmentStatus, ActorRole, STATUS_LABELS, parseShipment } from '@/types';
 import { ShipmentCard } from '@/components/ShipmentCard';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -14,13 +14,13 @@ import { Package, Plus, Loader2 } from 'lucide-react';
 
 const STATUS_FILTER_OPTIONS = [
   { value: 'all', label: 'All statuses' },
-  { value: String(ShipmentStatus.Created), label: 'Created' },
-  { value: String(ShipmentStatus.InTransit), label: 'In Transit' },
-  { value: String(ShipmentStatus.AtHub), label: 'At Hub' },
-  { value: String(ShipmentStatus.OutForDelivery), label: 'Out for Delivery' },
-  { value: String(ShipmentStatus.Delivered), label: 'Delivered' },
-  { value: String(ShipmentStatus.Returned), label: 'Returned' },
-  { value: String(ShipmentStatus.Cancelled), label: 'Cancelled' },
+  { value: STATUS_LABELS[ShipmentStatus.Created], label: STATUS_LABELS[ShipmentStatus.Created] },
+  { value: STATUS_LABELS[ShipmentStatus.InTransit], label: STATUS_LABELS[ShipmentStatus.InTransit] },
+  { value: STATUS_LABELS[ShipmentStatus.AtHub], label: STATUS_LABELS[ShipmentStatus.AtHub] },
+  { value: STATUS_LABELS[ShipmentStatus.OutForDelivery], label: STATUS_LABELS[ShipmentStatus.OutForDelivery] },
+  { value: STATUS_LABELS[ShipmentStatus.Delivered], label: STATUS_LABELS[ShipmentStatus.Delivered] },
+  { value: STATUS_LABELS[ShipmentStatus.Returned], label: STATUS_LABELS[ShipmentStatus.Returned] },
+  { value: STATUS_LABELS[ShipmentStatus.Cancelled], label: STATUS_LABELS[ShipmentStatus.Cancelled] },
 ];
 
 export default function ShipmentsPage() {
@@ -62,7 +62,7 @@ export default function ShipmentsPage() {
   const filtered =
     statusFilter === 'all'
       ? shipments
-      : shipments.filter((s) => s.status === Number(statusFilter));
+      : shipments.filter((s) => STATUS_LABELS[s.status] === statusFilter);
 
   if (walletLoading || loading) {
     return (

@@ -38,7 +38,8 @@ export default function HomePage() {
     setRegistering(true);
     try {
       const { contract } = await getSignerAndContract();
-      const tx = await contract.registerActor(name.trim(), Number(role), location.trim());
+      const roleValue = REGISTRABLE_ROLES.find((r) => ROLE_LABELS[r] === role) ?? 0;
+      const tx = await contract.registerActor(name.trim(), roleValue, location.trim());
       toast.loading('Submitting registration…', { id: 'reg' });
       await tx.wait();
       toast.success('Registration submitted! Waiting for admin approval.', { id: 'reg' });
@@ -116,7 +117,7 @@ export default function HomePage() {
                 </SelectTrigger>
                 <SelectContent>
                   {REGISTRABLE_ROLES.map((r) => (
-                    <SelectItem key={r} value={String(r)}>
+                    <SelectItem key={r} value={ROLE_LABELS[r]}>
                       {ROLE_LABELS[r]}
                     </SelectItem>
                   ))}

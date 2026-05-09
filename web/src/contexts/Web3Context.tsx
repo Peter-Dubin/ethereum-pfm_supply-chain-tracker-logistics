@@ -121,6 +121,11 @@ export function Web3Provider({ children }: { children: React.ReactNode }) {
         const addr = accounts[0];
         setAddress(addr);
         localStorage.setItem('lastConnectedAddress', addr);
+        try {
+          const provider = getProvider();
+          const network = await provider.getNetwork();
+          setChainId(Number(network.chainId));
+        } catch { /* keep existing chainId */ }
         await fetchActorInfo(addr);
       }
     };

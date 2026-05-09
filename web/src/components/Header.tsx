@@ -8,6 +8,7 @@ import { getNetworkName } from '@/contracts/config';
 import { shortenAddress } from '@/lib/web3';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { useTheme } from 'next-themes';
 import {
   Package,
   LayoutDashboard,
@@ -17,6 +18,8 @@ import {
   Shield,
   LogOut,
   Loader2,
+  Sun,
+  Moon,
 } from 'lucide-react';
 
 const NAV_LINKS = [
@@ -30,6 +33,7 @@ const NAV_LINKS = [
 export function Header() {
   const { address, isConnected, chainId, actorInfo, isAdmin, isLoading, connect, disconnect } = useWallet();
   const pathname = usePathname();
+  const { theme, setTheme } = useTheme();
 
   const visibleLinks = NAV_LINKS.filter((link) => {
     if (!isConnected) return false;
@@ -88,9 +92,11 @@ export function Header() {
             </Button>
           ) : (
             <>
-              <Badge variant="outline" className="hidden sm:flex text-xs">
-                {getNetworkName(chainId)}
-              </Badge>
+              {chainId && (
+                <Badge variant="outline" className="hidden sm:flex text-xs">
+                  {getNetworkName(chainId)}
+                </Badge>
+              )}
               {actorInfo && (
                 <Badge variant="secondary" className="hidden sm:flex text-xs">
                   {ROLE_LABELS[actorInfo.role]}
@@ -109,6 +115,15 @@ export function Header() {
               </Button>
             </>
           )}
+          <Button
+            size="icon"
+            variant="ghost"
+            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+            title="Toggle dark mode"
+          >
+            <Sun className="size-4 hidden dark:block" />
+            <Moon className="size-4 dark:hidden" />
+          </Button>
         </div>
       </div>
     </header>

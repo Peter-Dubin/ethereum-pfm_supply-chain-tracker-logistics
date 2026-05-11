@@ -1,14 +1,15 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useWallet } from '@/hooks/useWallet';
-import { getSignerAndContract } from '@/lib/web3';
-import { ActorRole } from '@/types';
+import { getContract, getSignerAndContract, shortenAddress } from '@/lib/web3';
+import { ActorInfo, ActorRole, parseActorInfo } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { Loader2, Package, Thermometer } from 'lucide-react';
 import { toast } from 'sonner';
@@ -23,6 +24,45 @@ export default function CreateShipmentPage() {
   const [destination, setDestination] = useState('');
   const [coldChain, setColdChain] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [recipients, setRecipients] = useState<ActorInfo[]>([]);
+  const [loadingRecipients, setLoadingRecipients] = useState(true);
+
+  const loadRecipients = useCallback(async () => {
+    try {
+      const contract = await getContract();
+      const filter = contract.filters.ActorRegistered();
+      const events = await contract.queryFilter(filter);
+
+      const seen = new Set<string>();
+      const list: ActorInfo[] = [];
+
+      for (const event of events) {
+        const addr = ('args' in event && event.args ? event.args[0] : null) as string | null;
+        if (!addr || seen.has(addr.toLowerCase())) continue;
+        seen.add(addr.toLowerCase());
+
+        try {
+          const raw = await contract.getActor(addr);
+          const info = parseActorInfo(raw as Record<string, unknown>);
+          if (info.role === ActorRole.Recipient && info.isActive) {
+            list.push(info);
+          }
+        } catch {
+          /* skip */
+        }
+      }
+
+      setRecipients(list);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoadingRecipients(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadRecipients();
+  }, [loadRecipients]);
 
   if (actorInfo?.role !== ActorRole.Sender) {
     return (
@@ -32,20 +72,18 @@ export default function CreateShipmentPage() {
     );
   }
 
+  const selectedRecipient = recipients.find((r) => r.actorAddress === recipient) ?? null;
+
   const handleSubmit = async () => {
-    if (!recipient.trim() || !product.trim() || !origin.trim() || !destination.trim()) {
+    if (!recipient || !product.trim() || !origin.trim() || !destination.trim()) {
       toast.error('All fields are required');
-      return;
-    }
-    if (!/^0x[0-9a-fA-F]{40}$/.test(recipient.trim())) {
-      toast.error('Invalid recipient address');
       return;
     }
     setSubmitting(true);
     try {
       const { contract } = await getSignerAndContract();
       const tx = await contract.createShipment(
-        recipient.trim(),
+        recipient,
         product.trim(),
         origin.trim(),
         destination.trim(),
@@ -87,7 +125,7 @@ export default function CreateShipmentPage() {
             <Package className="size-5 text-primary" />
             <CardTitle>Create Shipment</CardTitle>
           </div>
-          <CardDescription>Create a new on-chain shipment record.</CardDescription>
+          <CardDescription>Create a new on-chain shipment record. The shipment ID is assigned automatically.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-5">
           <div className="space-y-1.5">
@@ -103,14 +141,44 @@ export default function CreateShipmentPage() {
           <Separator />
 
           <div className="space-y-1.5">
-            <Label htmlFor="recipient">Recipient Wallet Address</Label>
-            <Input
-              id="recipient"
-              placeholder="0x..."
+            <Label htmlFor="recipient">Recipient</Label>
+            <Select
               value={recipient}
-              onChange={(e) => setRecipient(e.target.value)}
-              className="font-mono text-sm"
-            />
+              onValueChange={(v) => setRecipient(v ?? '')}
+              disabled={loadingRecipients || recipients.length === 0}
+            >
+              <SelectTrigger id="recipient" className="w-full">
+                {loadingRecipients ? (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Loader2 className="size-4 animate-spin" />
+                    Loading recipients…
+                  </div>
+                ) : selectedRecipient ? (
+                  <div className="flex flex-col items-start gap-0.5 py-0.5">
+                    <span className="text-sm font-medium leading-tight">{selectedRecipient.name}</span>
+                    <span className="text-xs text-muted-foreground font-mono leading-tight">
+                      {shortenAddress(selectedRecipient.actorAddress)}
+                    </span>
+                  </div>
+                ) : (
+                  <span className="text-sm text-muted-foreground">
+                    {recipients.length === 0 ? 'No registered recipients' : 'Select recipient'}
+                  </span>
+                )}
+              </SelectTrigger>
+              <SelectContent align="start">
+                {recipients.map((r) => (
+                  <SelectItem key={r.actorAddress} value={r.actorAddress} className="items-start py-2">
+                    <div className="flex flex-col gap-0.5">
+                      <span className="font-medium leading-tight">{r.name}</span>
+                      <span className="text-xs text-muted-foreground font-mono leading-tight">
+                        {shortenAddress(r.actorAddress)}
+                      </span>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
@@ -148,7 +216,7 @@ export default function CreateShipmentPage() {
             </Label>
           </div>
 
-          <Button className="w-full" onClick={handleSubmit} disabled={submitting}>
+          <Button className="w-full" onClick={handleSubmit} disabled={submitting || loadingRecipients}>
             {submitting ? <Loader2 className="size-4 animate-spin mr-2" /> : null}
             Create Shipment
           </Button>

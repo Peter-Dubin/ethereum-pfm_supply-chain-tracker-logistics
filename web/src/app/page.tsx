@@ -117,7 +117,7 @@ export default function HomePage() {
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="role">Role</Label>
-              <Select value={role} onValueChange={(v) => setRole(v ?? '')}>
+              <Select key={address ?? 'no-addr'} value={role} onValueChange={(v) => setRole(v ?? '')}>
                 <SelectTrigger id="role">
                   <SelectValue placeholder="Select your role" />
                 </SelectTrigger>

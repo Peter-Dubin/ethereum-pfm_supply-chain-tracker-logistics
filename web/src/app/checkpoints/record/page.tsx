@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useWallet } from '@/hooks/useWallet';
 import { getContract, getSignerAndContract } from '@/lib/web3';
-import { ActorRole, Shipment, ShipmentStatus, STATUS_LABELS, parseShipment } from '@/types';
+import { ActorInfo, ActorRole, ROLE_LABELS, Shipment, ShipmentStatus, STATUS_LABELS, parseShipment, parseActorInfo } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -33,6 +33,7 @@ function RecordCheckpointForm() {
   const [shipmentId, setShipmentId] = useState(prefilledId);
   const [activeShipments, setActiveShipments] = useState<Shipment[]>([]);
   const [location, setLocation] = useState('');
+  const [locationOptions, setLocationOptions] = useState<ActorInfo[]>([]);
   const [checkpointType, setCheckpointType] = useState('');
   const [notes, setNotes] = useState('');
   const [temp, setTemp] = useState('');
@@ -63,6 +64,39 @@ function RecordCheckpointForm() {
     }
   }, [address]);
 
+  const loadLocationOptions = useCallback(async () => {
+    try {
+      const contract = await getContract();
+      const filter = contract.filters.ActorRegistered();
+      const events = await contract.queryFilter(filter);
+
+      const seen = new Set<string>();
+      const seenLocs = new Set<string>();
+      const actors: ActorInfo[] = [];
+
+      for (const event of events) {
+        const addr = ('args' in event && event.args ? event.args[0] : null) as string | null;
+        if (!addr || seen.has(addr.toLowerCase())) continue;
+        seen.add(addr.toLowerCase());
+
+        try {
+          const raw = await contract.getActor(addr);
+          const info = parseActorInfo(raw as Record<string, unknown>);
+          if (info.isActive && info.location && !seenLocs.has(info.location)) {
+            seenLocs.add(info.location);
+            actors.push(info);
+          }
+        } catch {
+          /* skip */
+        }
+      }
+
+      setLocationOptions(actors);
+    } catch (err) {
+      console.error(err);
+    }
+  }, []);
+
   useEffect(() => {
     if (!walletLoading && actorInfo) {
       if (actorInfo.role !== ActorRole.Carrier && actorInfo.role !== ActorRole.Hub) {
@@ -70,8 +104,9 @@ function RecordCheckpointForm() {
         return;
       }
       loadShipments();
+      loadLocationOptions();
     }
-  }, [walletLoading, actorInfo, loadShipments, router]);
+  }, [walletLoading, actorInfo, loadShipments, loadLocationOptions, router]);
 
   useEffect(() => {
     const found = activeShipments.find((s) => String(s.id) === shipmentId);
@@ -128,6 +163,8 @@ function RecordCheckpointForm() {
     );
   }
 
+  const selectedLocationActor = locationOptions.find((a) => a.location === location) ?? null;
+
   return (
     <div className="max-w-lg mx-auto px-4 py-8">
       <Card>
@@ -142,27 +179,33 @@ function RecordCheckpointForm() {
           {/* Shipment selector */}
           <div className="space-y-1.5">
             <Label htmlFor="shipment">Shipment</Label>
-            {activeShipments.length > 0 ? (
-              <Select value={shipmentId} onValueChange={(v) => setShipmentId(v ?? '')}>
-                <SelectTrigger id="shipment">
-                  <SelectValue placeholder="Select a shipment" />
-                </SelectTrigger>
-                <SelectContent>
-                  {activeShipments.map((s) => (
-                    <SelectItem key={String(s.id)} value={String(s.id)}>
-                      #{String(s.id)} — {s.product} ({STATUS_LABELS[s.status]})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            ) : (
-              <Input
-                id="shipment"
-                placeholder="Enter Shipment ID"
-                value={shipmentId}
-                onChange={(e) => setShipmentId(e.target.value)}
-              />
-            )}
+            <Select
+              value={shipmentId}
+              onValueChange={(v) => setShipmentId(v ?? '')}
+              disabled={activeShipments.length === 0}
+            >
+              <SelectTrigger id="shipment" className="w-full">
+                {shipmentId ? (
+                  (() => {
+                    const s = activeShipments.find((sh) => String(sh.id) === shipmentId);
+                    return s ? (
+                      <span className="text-sm">#{String(s.id)} — {s.product} ({STATUS_LABELS[s.status]})</span>
+                    ) : null;
+                  })()
+                ) : (
+                  <span className="text-sm text-muted-foreground">
+                    {activeShipments.length === 0 ? 'No active shipments' : 'Select a shipment'}
+                  </span>
+                )}
+              </SelectTrigger>
+              <SelectContent align="start">
+                {activeShipments.map((s) => (
+                  <SelectItem key={String(s.id)} value={String(s.id)}>
+                    #{String(s.id)} — {s.product} ({STATUS_LABELS[s.status]})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             {selectedShipment && (
               <p className="text-xs text-muted-foreground">
                 {selectedShipment.origin} → {selectedShipment.destination}
@@ -173,19 +216,53 @@ function RecordCheckpointForm() {
           {/* Location */}
           <div className="space-y-1.5">
             <Label htmlFor="location">Location</Label>
-            <Input
-              id="location"
-              placeholder="e.g. Hub Logístico Madrid, Getafe"
+            <Select
               value={location}
-              onChange={(e) => setLocation(e.target.value)}
-            />
+              onValueChange={(v) => setLocation(v ?? '')}
+              disabled={locationOptions.length === 0}
+            >
+              <SelectTrigger id="location" className="w-full">
+                {selectedLocationActor ? (
+                  <div className="flex flex-col items-start gap-0.5 py-0.5">
+                    <span className="text-sm font-medium leading-tight">
+                      {selectedLocationActor.name}
+                      <span className="font-normal text-muted-foreground ml-1.5 text-xs">
+                        ({ROLE_LABELS[selectedLocationActor.role]})
+                      </span>
+                    </span>
+                    <span className="text-xs text-muted-foreground leading-tight">
+                      {selectedLocationActor.location}
+                    </span>
+                  </div>
+                ) : (
+                  <span className="text-sm text-muted-foreground">
+                    {locationOptions.length === 0 ? 'No registered locations' : 'Select location'}
+                  </span>
+                )}
+              </SelectTrigger>
+              <SelectContent align="start">
+                {locationOptions.map((actor) => (
+                  <SelectItem key={actor.actorAddress} value={actor.location} className="items-start py-2">
+                    <div className="flex flex-col gap-0.5">
+                      <span className="font-medium leading-tight">
+                        {actor.name}
+                        <span className="font-normal text-muted-foreground ml-1.5 text-xs">
+                          ({ROLE_LABELS[actor.role]})
+                        </span>
+                      </span>
+                      <span className="text-xs text-muted-foreground leading-tight">{actor.location}</span>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           {/* Checkpoint type */}
           <div className="space-y-1.5">
             <Label htmlFor="type">Checkpoint Type</Label>
             <Select value={checkpointType} onValueChange={(v) => setCheckpointType(v ?? '')}>
-              <SelectTrigger id="type">
+              <SelectTrigger id="type" className="w-full">
                 <SelectValue placeholder="Select type" />
               </SelectTrigger>
               <SelectContent>
@@ -231,7 +308,7 @@ function RecordCheckpointForm() {
           <div className="space-y-1.5">
             <Label htmlFor="status">Update Shipment Status</Label>
             <Select value={newStatus} onValueChange={(v) => setNewStatus(v ?? 'none')}>
-              <SelectTrigger id="status">
+              <SelectTrigger id="status" className="w-full">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>

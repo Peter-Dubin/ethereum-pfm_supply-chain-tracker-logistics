@@ -13,6 +13,7 @@ import {
   parseShipment,
   parseCheckpoint,
   parseIncident,
+  parseActorInfo,
 } from '@/types';
 import { TrackingTimeline } from '@/components/TrackingTimeline';
 import { Button } from '@/components/ui/button';
@@ -58,6 +59,7 @@ export default function ShipmentDetailPage({
   const [shipment, setShipment] = useState<Shipment | null>(null);
   const [checkpoints, setCheckpoints] = useState<Checkpoint[]>([]);
   const [incidents, setIncidents] = useState<Incident[]>([]);
+  const [actorsMap, setActorsMap] = useState<Map<string, string>>(new Map());
   const [loading, setLoading] = useState(true);
   const [confirming, setConfirming] = useState(false);
 
@@ -71,13 +73,27 @@ export default function ShipmentDetailPage({
         contract.getShipmentIncidents(BigInt(id)),
       ]);
 
-      setShipment(parseShipment(rawShipment as Record<string | number, unknown>));
-      setCheckpoints(
-        (rawCheckpoints as Record<string, unknown>[]).map(parseCheckpoint)
-      );
-      setIncidents(
-        (rawIncidents as Record<string, unknown>[]).map(parseIncident)
-      );
+      const parsedShipment = parseShipment(rawShipment as Record<string | number, unknown>);
+      const parsedCheckpoints = (rawCheckpoints as Record<string, unknown>[]).map(parseCheckpoint);
+
+      setShipment(parsedShipment);
+      setCheckpoints(parsedCheckpoints);
+      setIncidents((rawIncidents as Record<string, unknown>[]).map(parseIncident));
+
+      const addresses = new Set<string>([
+        parsedShipment.sender.toLowerCase(),
+        parsedShipment.recipient.toLowerCase(),
+        ...parsedCheckpoints.map((cp) => cp.actor.toLowerCase()),
+      ]);
+      const map = new Map<string, string>();
+      for (const addr of addresses) {
+        try {
+          const raw = await contract.getActor(addr);
+          const info = parseActorInfo(raw as Record<string, unknown>);
+          if (info.name) map.set(addr, info.name);
+        } catch { /* skip */ }
+      }
+      setActorsMap(map);
     } catch (err) {
       console.error(err);
       toast.error('Failed to load shipment');
@@ -195,11 +211,21 @@ export default function ShipmentDetailPage({
             </div>
             <div>
               <dt className="text-muted-foreground">Sender</dt>
-              <dd className="font-mono">{shortenAddress(shipment.sender)}</dd>
+              <dd>
+                {actorsMap.get(shipment.sender.toLowerCase()) && (
+                  <span className="font-medium">{actorsMap.get(shipment.sender.toLowerCase())} </span>
+                )}
+                <span className="font-mono text-muted-foreground">{shortenAddress(shipment.sender)}</span>
+              </dd>
             </div>
             <div>
               <dt className="text-muted-foreground">Recipient</dt>
-              <dd className="font-mono">{shortenAddress(shipment.recipient)}</dd>
+              <dd>
+                {actorsMap.get(shipment.recipient.toLowerCase()) && (
+                  <span className="font-medium">{actorsMap.get(shipment.recipient.toLowerCase())} </span>
+                )}
+                <span className="font-mono text-muted-foreground">{shortenAddress(shipment.recipient)}</span>
+              </dd>
             </div>
             <div>
               <dt className="text-muted-foreground">Created</dt>
@@ -225,6 +251,7 @@ export default function ShipmentDetailPage({
             checkpoints={checkpoints}
             incidents={incidents}
             currentStatus={shipment.status}
+            actorsMap={actorsMap}
           />
         </CardContent>
       </Card>

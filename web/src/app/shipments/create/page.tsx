@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useWallet } from '@/hooks/useWallet';
 import { getContract, getSignerAndContract, shortenAddress } from '@/lib/web3';
@@ -24,17 +24,20 @@ export default function CreateShipmentPage() {
   const [destination, setDestination] = useState('');
   const [coldChain, setColdChain] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [senders, setSenders] = useState<ActorInfo[]>([]);
   const [recipients, setRecipients] = useState<ActorInfo[]>([]);
-  const [loadingRecipients, setLoadingRecipients] = useState(true);
+  const [loadingActors, setLoadingActors] = useState(true);
+  const originDefaultApplied = useRef(false);
 
-  const loadRecipients = useCallback(async () => {
+  const loadActors = useCallback(async () => {
     try {
       const contract = await getContract();
       const filter = contract.filters.ActorRegistered();
       const events = await contract.queryFilter(filter);
 
       const seen = new Set<string>();
-      const list: ActorInfo[] = [];
+      const senderList: ActorInfo[] = [];
+      const recipientList: ActorInfo[] = [];
 
       for (const event of events) {
         const addr = ('args' in event && event.args ? event.args[0] : null) as string | null;
@@ -44,25 +47,40 @@ export default function CreateShipmentPage() {
         try {
           const raw = await contract.getActor(addr);
           const info = parseActorInfo(raw as Record<string, unknown>);
-          if (info.role === ActorRole.Recipient && info.isActive) {
-            list.push(info);
-          }
+          if (!info.isActive) continue;
+          if (info.role === ActorRole.Sender) senderList.push(info);
+          else if (info.role === ActorRole.Recipient) recipientList.push(info);
         } catch {
           /* skip */
         }
       }
 
-      setRecipients(list);
+      setSenders(senderList);
+      setRecipients(recipientList);
     } catch (err) {
       console.error(err);
     } finally {
-      setLoadingRecipients(false);
+      setLoadingActors(false);
     }
   }, []);
 
   useEffect(() => {
-    loadRecipients();
-  }, [loadRecipients]);
+    loadActors();
+  }, [loadActors]);
+
+  // Pre-populate origin with current sender's location once actors finish loading
+  useEffect(() => {
+    if (!originDefaultApplied.current && !loadingActors && actorInfo?.location) {
+      setOrigin(actorInfo.location);
+      originDefaultApplied.current = true;
+    }
+  }, [loadingActors, actorInfo]);
+
+  // Pre-populate destination when recipient selection changes
+  useEffect(() => {
+    const found = recipients.find((r) => r.actorAddress === recipient);
+    setDestination(found?.location ?? '');
+  }, [recipient, recipients]);
 
   if (actorInfo?.role !== ActorRole.Sender) {
     return (
@@ -73,6 +91,8 @@ export default function CreateShipmentPage() {
   }
 
   const selectedRecipient = recipients.find((r) => r.actorAddress === recipient) ?? null;
+  const selectedOriginActor = senders.find((s) => s.location === origin) ?? null;
+  const selectedDestinationActor = recipients.find((r) => r.location === destination) ?? null;
 
   const handleSubmit = async () => {
     if (!recipient || !product.trim() || !origin.trim() || !destination.trim()) {
@@ -145,10 +165,10 @@ export default function CreateShipmentPage() {
             <Select
               value={recipient}
               onValueChange={(v) => setRecipient(v ?? '')}
-              disabled={loadingRecipients || recipients.length === 0}
+              disabled={loadingActors || recipients.length === 0}
             >
               <SelectTrigger id="recipient" className="w-full">
-                {loadingRecipients ? (
+                {loadingActors ? (
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <Loader2 className="size-4 animate-spin" />
                     Loading recipients…
@@ -181,24 +201,79 @@ export default function CreateShipmentPage() {
             </Select>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="flex flex-col gap-4">
+            {/* Origin — sender locations only */}
             <div className="space-y-1.5">
               <Label htmlFor="origin">Origin</Label>
-              <Input
-                id="origin"
-                placeholder="e.g. Madrid"
+              <Select
                 value={origin}
-                onChange={(e) => setOrigin(e.target.value)}
-              />
+                onValueChange={(v) => setOrigin(v ?? '')}
+                disabled={loadingActors || senders.length === 0}
+              >
+                <SelectTrigger id="origin" className="w-full">
+                  {loadingActors ? (
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Loader2 className="size-4 animate-spin" />
+                    </div>
+                  ) : selectedOriginActor ? (
+                    <div className="flex flex-col items-start gap-0.5 py-0.5">
+                      <span className="text-sm font-medium leading-tight">{selectedOriginActor.name}</span>
+                      <span className="text-xs text-muted-foreground leading-tight">{selectedOriginActor.location}</span>
+                    </div>
+                  ) : (
+                    <span className="text-sm text-muted-foreground">
+                      {senders.length === 0 ? 'No registered senders' : 'Select origin'}
+                    </span>
+                  )}
+                </SelectTrigger>
+                <SelectContent align="start">
+                  {senders.map((s) => (
+                    <SelectItem key={s.actorAddress} value={s.location} className="items-start py-2">
+                      <div className="flex flex-col gap-0.5">
+                        <span className="font-medium leading-tight">{s.name}</span>
+                        <span className="text-xs text-muted-foreground leading-tight">{s.location}</span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
+
+            {/* Destination — recipient locations only */}
             <div className="space-y-1.5">
               <Label htmlFor="destination">Destination</Label>
-              <Input
-                id="destination"
-                placeholder="e.g. Barcelona"
+              <Select
                 value={destination}
-                onChange={(e) => setDestination(e.target.value)}
-              />
+                onValueChange={(v) => setDestination(v ?? '')}
+                disabled={loadingActors || recipients.length === 0}
+              >
+                <SelectTrigger id="destination" className="w-full">
+                  {loadingActors ? (
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Loader2 className="size-4 animate-spin" />
+                    </div>
+                  ) : selectedDestinationActor ? (
+                    <div className="flex flex-col items-start gap-0.5 py-0.5">
+                      <span className="text-sm font-medium leading-tight">{selectedDestinationActor.name}</span>
+                      <span className="text-xs text-muted-foreground leading-tight">{selectedDestinationActor.location}</span>
+                    </div>
+                  ) : (
+                    <span className="text-sm text-muted-foreground">
+                      {recipients.length === 0 ? 'No registered recipients' : 'Select destination'}
+                    </span>
+                  )}
+                </SelectTrigger>
+                <SelectContent align="start">
+                  {recipients.map((r) => (
+                    <SelectItem key={r.actorAddress} value={r.location} className="items-start py-2">
+                      <div className="flex flex-col gap-0.5">
+                        <span className="font-medium leading-tight">{r.name}</span>
+                        <span className="text-xs text-muted-foreground leading-tight">{r.location}</span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
@@ -216,7 +291,7 @@ export default function CreateShipmentPage() {
             </Label>
           </div>
 
-          <Button className="w-full" onClick={handleSubmit} disabled={submitting || loadingRecipients}>
+          <Button className="w-full" onClick={handleSubmit} disabled={submitting || loadingActors}>
             {submitting ? <Loader2 className="size-4 animate-spin mr-2" /> : null}
             Create Shipment
           </Button>

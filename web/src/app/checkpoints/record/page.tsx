@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useWallet } from '@/hooks/useWallet';
 import { getContract, getSignerAndContract } from '@/lib/web3';
-import { ActorInfo, ActorRole, ROLE_LABELS, Shipment, ShipmentStatus, STATUS_LABELS, parseShipment, parseActorInfo } from '@/types';
+import { ActorInfo, ActorRole, ROLE_LABELS, Shipment, ShipmentStatus, parseShipment, parseActorInfo } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -16,16 +16,22 @@ import { Suspense } from 'react';
 
 const CHECKPOINT_TYPES = ['Pickup', 'Hub', 'Transit', 'Delivery'];
 
-const STATUS_OPTIONS = [
-  { value: 'none', label: 'Keep current status' },
-  { value: STATUS_LABELS[ShipmentStatus.InTransit], label: 'Mark In Transit' },
-  { value: STATUS_LABELS[ShipmentStatus.AtHub], label: 'Mark At Hub' },
-  { value: STATUS_LABELS[ShipmentStatus.OutForDelivery], label: 'Mark Out for Delivery' },
-  { value: STATUS_LABELS[ShipmentStatus.Returned], label: 'Mark Returned' },
-];
+const CHECKPOINT_STATUS_MAP: Partial<Record<string, ShipmentStatus>> = {
+  Pickup: ShipmentStatus.InTransit,
+  Hub: ShipmentStatus.AtHub,
+  Transit: ShipmentStatus.InTransit,
+  Delivery: ShipmentStatus.OutForDelivery,
+};
+
+const STATUS_CHECKPOINT_MAP: Partial<Record<ShipmentStatus, string>> = {
+  [ShipmentStatus.Created]: 'Pickup',
+  [ShipmentStatus.InTransit]: 'Hub',
+  [ShipmentStatus.AtHub]: 'Transit',
+  [ShipmentStatus.OutForDelivery]: 'Delivery',
+};
 
 function RecordCheckpointForm() {
-  const { address, actorInfo, isLoading: walletLoading } = useWallet();
+  const { actorInfo, isLoading: walletLoading } = useWallet();
   const router = useRouter();
   const searchParams = useSearchParams();
   const prefilledId = searchParams.get('shipment') ?? '';
@@ -37,32 +43,43 @@ function RecordCheckpointForm() {
   const [checkpointType, setCheckpointType] = useState('');
   const [notes, setNotes] = useState('');
   const [temp, setTemp] = useState('');
-  const [newStatus, setNewStatus] = useState('none');
   const [selectedShipment, setSelectedShipment] = useState<Shipment | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   const loadShipments = useCallback(async () => {
-    if (!address) return;
     try {
       const contract = await getContract();
-      const ids: bigint[] = await contract.getActorShipments(address);
+      const filter = contract.filters.ShipmentCreated();
+      const events = await contract.queryFilter(filter);
+
+      const seen = new Set<string>();
       const results: Shipment[] = [];
-      for (const id of ids) {
-        const raw = await contract.getShipment(id);
-        const s = parseShipment(raw as Record<string | number, unknown>);
-        if (
-          s.status !== ShipmentStatus.Delivered &&
-          s.status !== ShipmentStatus.Cancelled &&
-          s.status !== ShipmentStatus.Returned
-        ) {
-          results.push(s);
+
+      for (const event of events) {
+        const id = ('args' in event && event.args ? event.args[0] : null) as bigint | null;
+        if (!id || seen.has(String(id))) continue;
+        seen.add(String(id));
+
+        try {
+          const raw = await contract.getShipment(id);
+          const s = parseShipment(raw as Record<string | number, unknown>);
+          if (
+            s.status !== ShipmentStatus.Delivered &&
+            s.status !== ShipmentStatus.Cancelled &&
+            s.status !== ShipmentStatus.Returned
+          ) {
+            results.push(s);
+          }
+        } catch {
+          /* skip */
         }
       }
+
       setActiveShipments(results);
     } catch (err) {
       console.error(err);
     }
-  }, [address]);
+  }, []);
 
   const loadLocationOptions = useCallback(async () => {
     try {
@@ -111,7 +128,24 @@ function RecordCheckpointForm() {
   useEffect(() => {
     const found = activeShipments.find((s) => String(s.id) === shipmentId);
     setSelectedShipment(found ?? null);
-  }, [shipmentId, activeShipments]);
+    setCheckpointType(found ? (STATUS_CHECKPOINT_MAP[found.status] ?? '') : '');
+
+    if (!found) {
+      setLocation('');
+    } else if (actorInfo?.role === ActorRole.Hub) {
+      setLocation(actorInfo.location);
+    } else if (actorInfo?.role === ActorRole.Carrier) {
+      if (found.status === ShipmentStatus.Created) {
+        setLocation(found.origin);
+      } else if (found.status === ShipmentStatus.OutForDelivery) {
+        setLocation(found.destination);
+      } else {
+        setLocation(actorInfo.location);
+      }
+    } else {
+      setLocation(found.origin);
+    }
+  }, [shipmentId, activeShipments, actorInfo]);
 
   const handleSubmit = async () => {
     if (!shipmentId || !location.trim() || !checkpointType) {
@@ -139,9 +173,9 @@ function RecordCheckpointForm() {
       toast.loading('Recording checkpoint…', { id: 'cp' });
       await tx.wait();
 
-      if (newStatus !== 'none') {
-        const statusNum = (Object.entries(STATUS_LABELS) as [string, string][]).find(([, label]) => label === newStatus)?.[0];
-        const stx = await contract.updateShipmentStatus(BigInt(shipmentId), Number(statusNum ?? 0));
+      const autoStatus = CHECKPOINT_STATUS_MAP[checkpointType];
+      if (autoStatus !== undefined && selectedShipment && autoStatus !== selectedShipment.status) {
+        const stx = await contract.updateShipmentStatus(BigInt(shipmentId), autoStatus);
         await stx.wait();
       }
 
@@ -185,13 +219,16 @@ function RecordCheckpointForm() {
               disabled={activeShipments.length === 0}
             >
               <SelectTrigger id="shipment" className="w-full">
-                {shipmentId ? (
-                  (() => {
-                    const s = activeShipments.find((sh) => String(sh.id) === shipmentId);
-                    return s ? (
-                      <span className="text-sm">#{String(s.id)} — {s.product} ({STATUS_LABELS[s.status]})</span>
-                    ) : null;
-                  })()
+                {selectedShipment ? (
+                  <div className="flex flex-col items-start gap-0.5 py-0.5">
+                    <span className="text-sm font-medium leading-tight">
+                      {locationOptions.find((a) => a.location === selectedShipment.origin)?.name ?? `Shipment #${String(selectedShipment.id)}`}
+                      <span className="font-normal text-muted-foreground ml-1.5 text-xs">
+                        (#{String(selectedShipment.id)})
+                      </span>
+                    </span>
+                    <span className="text-xs text-muted-foreground leading-tight">{selectedShipment.product}</span>
+                  </div>
                 ) : (
                   <span className="text-sm text-muted-foreground">
                     {activeShipments.length === 0 ? 'No active shipments' : 'Select a shipment'}
@@ -199,11 +236,20 @@ function RecordCheckpointForm() {
                 )}
               </SelectTrigger>
               <SelectContent align="start">
-                {activeShipments.map((s) => (
-                  <SelectItem key={String(s.id)} value={String(s.id)}>
-                    #{String(s.id)} — {s.product} ({STATUS_LABELS[s.status]})
-                  </SelectItem>
-                ))}
+                {activeShipments.map((s) => {
+                  const senderName = locationOptions.find((a) => a.location === s.origin)?.name ?? `Shipment #${String(s.id)}`;
+                  return (
+                    <SelectItem key={String(s.id)} value={String(s.id)} className="items-start py-2">
+                      <div className="flex flex-col gap-0.5">
+                        <span className="font-medium leading-tight">
+                          {senderName}
+                          <span className="font-normal text-muted-foreground ml-1.5 text-xs">(#{String(s.id)})</span>
+                        </span>
+                        <span className="text-xs text-muted-foreground leading-tight">{s.product}</span>
+                      </div>
+                    </SelectItem>
+                  );
+                })}
               </SelectContent>
             </Select>
             {selectedShipment && (
@@ -303,23 +349,6 @@ function RecordCheckpointForm() {
               />
             </div>
           )}
-
-          {/* Update status */}
-          <div className="space-y-1.5">
-            <Label htmlFor="status">Update Shipment Status</Label>
-            <Select value={newStatus} onValueChange={(v) => setNewStatus(v ?? 'none')}>
-              <SelectTrigger id="status" className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {STATUS_OPTIONS.map((o) => (
-                  <SelectItem key={o.value} value={o.value}>
-                    {o.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
 
           <Button className="w-full" onClick={handleSubmit} disabled={submitting}>
             {submitting ? <Loader2 className="size-4 animate-spin mr-2" /> : null}

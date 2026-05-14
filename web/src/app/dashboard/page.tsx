@@ -52,16 +52,33 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
 
   const loadShipments = useCallback(async () => {
-    if (!address) return;
+    if (!address || !actorInfo) return;
     setLoading(true);
     try {
       const contract = await getContract();
-      const ids: bigint[] = await contract.getActorShipments(address);
       const results: Shipment[] = [];
-      for (const id of ids) {
-        const raw = await contract.getShipment(id);
-        results.push(parseShipment(raw as Record<string | number, unknown>));
+
+      if (actorInfo.role === ActorRole.Carrier || actorInfo.role === ActorRole.Hub) {
+        const filter = contract.filters.ShipmentCreated();
+        const events = await contract.queryFilter(filter);
+        const seen = new Set<string>();
+        for (const event of events) {
+          const id = ('args' in event && event.args ? event.args[0] : null) as bigint | null;
+          if (!id || seen.has(String(id))) continue;
+          seen.add(String(id));
+          try {
+            const raw = await contract.getShipment(id);
+            results.push(parseShipment(raw as Record<string | number, unknown>));
+          } catch { /* skip */ }
+        }
+      } else {
+        const ids: bigint[] = await contract.getActorShipments(address);
+        for (const id of ids) {
+          const raw = await contract.getShipment(id);
+          results.push(parseShipment(raw as Record<string | number, unknown>));
+        }
       }
+
       results.sort((a, b) => Number(b.dateCreated - a.dateCreated));
       setShipments(results);
     } catch (err) {
@@ -69,7 +86,7 @@ export default function DashboardPage() {
     } finally {
       setLoading(false);
     }
-  }, [address]);
+  }, [address, actorInfo]);
 
   useEffect(() => {
     if (!walletLoading && !isConnected) router.push('/');

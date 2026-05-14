@@ -73,21 +73,17 @@ address inspector = 0xa0Ee7A142d267C1f36714E4a8F75612F20a79720; // Inspector Gar
 
 **Step-by-step flow:**
 
-| # | Actor | Action | Checkpoint Type | Location | Notes |
-|---|---|---|---|---|---|
-| 1 | TechCorp S.L. | Creates shipment | — | — | Origin: Madrid; Dest: Barcelona |
-| 2 | ExpressRide Courier | Picks up package | Pickup | TechCorp warehouse, Las Rozas | "Sealed box, 5 kg" |
-| 3 | System | Status → InTransit | — | — | |
-| 4 | Hub Madrid Centro | Package arrives at hub | Hub | Calle Logística 12, Getafe | "Sorted and ready" |
-| 5 | System | Status → AtHub | — | — | |
-| 6 | Hub Madrid Centro | Package departs hub | Hub | Calle Logística 12, Getafe | "Loaded on Barcelona truck" |
-| 7 | Hub Barcelona Norte | Package arrives at hub | Hub | Av. Industrial 88, Montcada | "Received, forwarding to last-mile" |
-| 8 | Hub Barcelona Norte | Package departs hub | Hub | Av. Industrial 88, Montcada | "Handed to UrbanDeliver" |
-| 9 | UrbanDeliver S.L. | Last-mile pickup | Transit | Hub Barcelona Norte | |
-| 10 | System | Status → OutForDelivery | — | — | |
-| 11 | UrbanDeliver S.L. | Arrives at recipient | Delivery | Barcelona Tech Campus, 22@ | "Delivered to reception" |
-| 12 | Startup Innovations S.A. | Confirms delivery | — | — | MetaMask signature |
-| 13 | System | Status → Delivered; dateDelivered recorded | — | — | |
+| # | Actor | Action | Checkpoint Type | → Status | Location | Notes |
+|---|---|---|---|---|---|---|
+| 1 | TechCorp S.L. | Creates shipment | — | Created | — | Origin: Madrid; Dest: Barcelona |
+| 2 | ExpressRide Courier | Picks up package | Pickup | **InTransit** | TechCorp warehouse, Las Rozas | "Sealed box, 5 kg" |
+| 3 | Hub Madrid Centro | Package arrives at hub | Hub | **AtHub** | Calle Logística 12, Getafe | "Sorted and ready" |
+| 4 | Hub Madrid Centro | Package departs hub | Transit | **InTransit** | Calle Logística 12, Getafe | "Loaded on Barcelona truck" |
+| 5 | Hub Barcelona Norte | Package arrives at hub | Hub | **AtHub** | Av. Industrial 88, Montcada | "Received, forwarding to last-mile" |
+| 6 | Hub Barcelona Norte | Package departs hub | Transit | **InTransit** | Av. Industrial 88, Montcada | "Handed to UrbanDeliver" |
+| 7 | UrbanDeliver S.L. | Last-mile pickup | Transit | InTransit | Hub Barcelona Norte | |
+| 8 | UrbanDeliver S.L. | Arrives at recipient | Delivery | **OutForDelivery** | Barcelona Tech Campus, 22@ | "Delivered to reception" |
+| 9 | Startup Innovations S.A. | Confirms delivery | — | **Delivered** | — | MetaMask signature |
 
 **Checkpoints:** 7 | **Incidents:** 0  
 **Result:** `verifyTemperatureCompliance(1)` → N/A (not cold chain)
@@ -104,20 +100,18 @@ address inspector = 0xa0Ee7A142d267C1f36714E4a8F75612F20a79720; // Inspector Gar
 
 **Step-by-step flow:**
 
-| # | Actor | Action | Checkpoint Type | Location | Temp (°C) | Notes |
-|---|---|---|---|---|---|---|
-| 1 | MediSupply S.A. | Creates shipment | — | — | — | requiresColdChain = true |
-| 2 | ExpressRide Courier | Picks up vaccines | Pickup | MediSupply warehouse, Badalona | 4.0°C | "Insulated packaging verified" |
-| 3 | System | Status → InTransit | — | — | — | |
-| 4 | Hub Barcelona Norte | Package arrives | Hub | Av. Industrial 88 | 5.0°C | "Cold storage dock #3" |
-| 5 | Hub Madrid Centro | Package arrives | Hub | Calle Logística 12 | 6.0°C | "Transferred to refrigerated van" |
-| 6 | ExpressRide Courier | En route to hospital | Transit | A-4 motorway checkpoint | 7.0°C | "All within range" |
-| 7 | System | Status → OutForDelivery | — | — | — | |
-| 8 | ExpressRide Courier | Delivers to hospital | Delivery | Hospital Valle Verde, Alcorcón | 5.0°C | "Received by pharmacy staff" |
-| 9 | Hospital Valle Verde | Confirms delivery | — | — | — | MetaMask signature |
-| 10 | System | Status → Delivered | — | — | — | |
+| # | Actor | Action | Checkpoint Type | → Status | Location | Temp (°C) | Notes |
+|---|---|---|---|---|---|---|---|
+| 1 | MediSupply S.A. | Creates shipment | — | Created | — | — | requiresColdChain = true |
+| 2 | ExpressRide Courier | Picks up vaccines | Pickup | **InTransit** | MediSupply warehouse, Badalona | 4.0°C | "Insulated packaging verified" |
+| 3 | Hub Barcelona Norte | Package arrives | Hub | **AtHub** | Av. Industrial 88 | 5.0°C | "Cold storage dock #3" |
+| 4 | ExpressRide Courier | Departs Hub BCN → Hub MAD | Transit | **InTransit** | Av. Industrial 88, Montcada | 5.5°C | "In transit to Madrid" |
+| 5 | Hub Madrid Centro | Package arrives | Hub | **AtHub** | Calle Logística 12 | 6.0°C | "Transferred to refrigerated van" |
+| 6 | ExpressRide Courier | En route to hospital | Transit | InTransit | A-4 motorway checkpoint | 7.0°C | "All within range" |
+| 7 | ExpressRide Courier | Delivers to hospital | Delivery | **OutForDelivery** | Hospital Valle Verde, Alcorcón | 5.0°C | "Received by pharmacy staff" |
+| 8 | Hospital Valle Verde | Confirms delivery | — | **Delivered** | — | — | MetaMask signature |
 
-**Checkpoints:** 5 | **Incidents:** 0  
+**Checkpoints:** 6 | **Incidents:** 0  
 **Result:** `verifyTemperatureCompliance(2)` → `true` (all readings 4–7°C, within 2–8°C)
 
 ---
@@ -132,18 +126,17 @@ address inspector = 0xa0Ee7A142d267C1f36714E4a8F75612F20a79720; // Inspector Gar
 
 **Step-by-step flow:**
 
-| # | Actor | Action | Type | Notes |
-|---|---|---|---|---|
-| 1 | TechCorp S.L. | Creates shipment | — | High-value item |
-| 2 | ExpressRide Courier | Picks up | Pickup | "Small box, marked fragile" |
-| 3 | Hub Madrid Centro | Arrives at hub | Hub | "Received" |
-| 4 | Hub Madrid Centro | Discovers damage | Incident | **Incident reported:** type=Damage, "External box crushed at corner, product condition unknown" |
-| 5 | Inspector García | Notified; inspects | Checkpoint | "Physical inspection at Hub Madrid" |
-| 6 | Inspector García | Resolves incident | Incident resolved | "Product intact; repackaged in reinforced box; cleared to proceed" |
-| 7 | Hub Madrid Centro | Departs hub | Hub | "Cleared for shipment" |
-| 8 | UrbanDeliver S.L. | Last-mile delivery | Delivery | "Delivered to recipient" |
-| 9 | Startup Innovations | Confirms delivery | — | MetaMask signature |
-| 10 | System | Status → Delivered | — | |
+| # | Actor | Action | Type | → Status | Notes |
+|---|---|---|---|---|---|
+| 1 | TechCorp S.L. | Creates shipment | — | Created | High-value item |
+| 2 | ExpressRide Courier | Picks up | Pickup | **InTransit** | "Small box, marked fragile" |
+| 3 | Hub Madrid Centro | Arrives at hub | Hub | **AtHub** | "Received" |
+| 4 | Hub Madrid Centro | Discovers damage | Incident | *(no change)* | **Incident reported:** type=Damage, "External box crushed at corner, product condition unknown" |
+| 5 | Inspector García | Notified; inspects | Hub | AtHub | "Physical inspection at Hub Madrid" |
+| 6 | Inspector García | Resolves incident | Incident resolved | *(no change)* | "Product intact; repackaged in reinforced box; cleared to proceed" |
+| 7 | Hub Madrid Centro | Departs hub | Transit | **InTransit** | "Cleared for shipment" |
+| 8 | UrbanDeliver S.L. | Last-mile delivery | Delivery | **OutForDelivery** | "Delivered to recipient" |
+| 9 | Startup Innovations | Confirms delivery | — | **Delivered** | MetaMask signature |
 
 **Checkpoints:** 5 | **Incidents:** 1 (resolved)  
 **Key demonstration:** On-chain audit trail shows full incident lifecycle — reported, investigated, resolved — all immutable and timestamped.
@@ -160,17 +153,17 @@ address inspector = 0xa0Ee7A142d267C1f36714E4a8F75612F20a79720; // Inspector Gar
 
 **Step-by-step flow:**
 
-| # | Actor | Action | Type | Temp | Notes |
-|---|---|---|---|---|---|
-| 1 | MediSupply S.A. | Creates shipment | — | — | requiresColdChain = true |
-| 2 | ExpressRide Courier | Picks up | Pickup | 5°C | "Compliant" |
-| 3 | Hub Barcelona Norte | Arrives | Hub | 6°C | "Compliant" |
-| 4 | ExpressRide Courier | Transit checkpoint | Transit | **12°C** | "Refrigerated unit failure" |
-| 5 | ExpressRide Courier | Reports violation | Incident | — | **IncidentType=TempViolation**, "Refrigeration unit failed on A-2 motorway" |
-| 6 | Hub Madrid Centro | Refuses acceptance | Hub | — | "Awaiting inspection" |
-| 7 | Inspector García | Reports second violation | Incident | — | **IncidentType=TempViolation**, "Confirmed: chain broken at 12°C for ~2 hours" |
-| 8 | Admin | Updates status | — | — | Status → Returned |
-| 9 | MediSupply S.A. | Receives returned shipment | — | — | |
+| # | Actor | Action | Type | → Status | Temp | Notes |
+|---|---|---|---|---|---|---|
+| 1 | MediSupply S.A. | Creates shipment | — | Created | — | requiresColdChain = true |
+| 2 | ExpressRide Courier | Picks up | Pickup | **InTransit** | 5°C | "Compliant" |
+| 3 | Hub Barcelona Norte | Arrives | Hub | **AtHub** | 6°C | "Compliant" |
+| 4 | ExpressRide Courier | Transit checkpoint | Transit | **InTransit** | **12°C** | "Refrigerated unit failure" |
+| 5 | ExpressRide Courier | Reports violation | Incident | *(no change)* | — | **IncidentType=TempViolation**, "Refrigeration unit failed on A-2 motorway" |
+| 6 | Hub Madrid Centro | Refuses acceptance | Hub | **AtHub** | — | "Awaiting inspection" |
+| 7 | Inspector García | Reports second violation | Incident | *(no change)* | — | **IncidentType=TempViolation**, "Confirmed: chain broken at 12°C for ~2 hours" |
+| 8 | Admin | Updates status → Returned | — | **Returned** | — | Admin calls `updateShipmentStatus(4, Returned)` via Admin panel |
+| 9 | MediSupply S.A. | Receives returned shipment | — | — | — | |
 
 **Checkpoints:** 4 | **Incidents:** 2 (TempViolation × 2, both unresolved)  
 **Final Status:** Returned  
@@ -189,15 +182,12 @@ address inspector = 0xa0Ee7A142d267C1f36714E4a8F75612F20a79720; // Inspector Gar
 
 **Step-by-step flow:**
 
-| # | Actor | Action | Checkpoint Type | Notes |
-|---|---|---|---|---|
-| 1 | TechCorp S.L. | Creates shipment | — | Same-city express |
-| 2 | ExpressRide Courier | Picks up documents | Pickup | "Sealed envelope" |
-| 3 | System | Status → InTransit | — | |
-| 4 | System | Status → OutForDelivery | — | No hub needed |
-| 5 | ExpressRide Courier | Delivers | Delivery | "Signed at reception" |
-| 6 | Startup Innovations | Confirms delivery | — | MetaMask signature |
-| 7 | System | Status → Delivered | — | |
+| # | Actor | Action | Checkpoint Type | → Status | Notes |
+|---|---|---|---|---|---|
+| 1 | TechCorp S.L. | Creates shipment | — | Created | Same-city express |
+| 2 | ExpressRide Courier | Picks up documents | Pickup | **InTransit** | "Sealed envelope" |
+| 3 | ExpressRide Courier | Delivers | Delivery | **OutForDelivery** | "Signed at reception" |
+| 4 | Startup Innovations | Confirms delivery | — | **Delivered** | MetaMask signature |
 
 **Checkpoints:** 2 | **Incidents:** 0  
 **Key demonstration:** Shows the system handles simple flows as well as complex multi-hub ones — no mandatory hub step required.

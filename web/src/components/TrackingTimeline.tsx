@@ -21,9 +21,10 @@ interface Props {
   checkpoints: Checkpoint[];
   incidents: Incident[];
   currentStatus: ShipmentStatus;
+  actorsMap?: Map<string, string>;
 }
 
-export function TrackingTimeline({ checkpoints, incidents, currentStatus }: Props) {
+export function TrackingTimeline({ checkpoints, incidents, currentStatus, actorsMap }: Props) {
   if (checkpoints.length === 0) {
     return (
       <div className="text-sm text-muted-foreground py-6 text-center">
@@ -122,7 +123,10 @@ export function TrackingTimeline({ checkpoints, incidents, currentStatus }: Prop
                     </span>
                   )}
                   <span className="text-xs text-muted-foreground">
-                    by {shortenAddress(cp.actor)}
+                    by {actorsMap?.get(cp.actor.toLowerCase()) ?? shortenAddress(cp.actor)}
+                    {actorsMap?.get(cp.actor.toLowerCase()) && (
+                      <span className="font-mono ml-1">({shortenAddress(cp.actor)})</span>
+                    )}
                   </span>
                 </div>
 

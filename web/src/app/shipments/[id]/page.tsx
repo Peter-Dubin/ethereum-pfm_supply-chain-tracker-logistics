@@ -170,7 +170,7 @@ export default function ShipmentDetailPage({
               <p className="font-medium text-green-800">Package out for delivery</p>
               <p className="text-sm text-green-700">Confirm receipt to complete the on-chain record.</p>
             </div>
-            <Button onClick={handleConfirmDelivery} disabled={confirming}>
+            <Button onClick={handleConfirmDelivery} disabled={confirming} className="hover:scale-105 transition-transform duration-150 shadow-sm hover:shadow-md">
               {confirming ? (
                 <Loader2 className="size-4 animate-spin mr-2" />
               ) : (

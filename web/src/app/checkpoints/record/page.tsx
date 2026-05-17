@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useWallet } from '@/hooks/useWallet';
 import { getContract, getSignerAndContract } from '@/lib/web3';
-import { ActorInfo, ActorRole, ROLE_LABELS, Shipment, ShipmentStatus, parseShipment, parseActorInfo } from '@/types';
+import { ActorInfo, ActorRole, Checkpoint, ROLE_LABELS, Shipment, ShipmentStatus, parseCheckpoint, parseShipment, parseActorInfo } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -21,13 +21,6 @@ const CHECKPOINT_STATUS_MAP: Partial<Record<string, ShipmentStatus>> = {
   Hub: ShipmentStatus.AtHub,
   Transit: ShipmentStatus.InTransit,
   Delivery: ShipmentStatus.OutForDelivery,
-};
-
-const STATUS_CHECKPOINT_MAP: Partial<Record<ShipmentStatus, string>> = {
-  [ShipmentStatus.Created]: 'Pickup',
-  [ShipmentStatus.InTransit]: 'Hub',
-  [ShipmentStatus.AtHub]: 'Transit',
-  [ShipmentStatus.OutForDelivery]: 'Delivery',
 };
 
 function RecordCheckpointForm() {
@@ -125,27 +118,64 @@ function RecordCheckpointForm() {
     }
   }, [walletLoading, actorInfo, loadShipments, loadLocationOptions, router]);
 
+  const fetchLastCheckpoint = useCallback(async (id: bigint): Promise<Checkpoint | null> => {
+    try {
+      const contract = await getContract();
+      const raw = await contract.getShipmentCheckpoints(id);
+      if (Array.isArray(raw) && raw.length > 0) {
+        return parseCheckpoint(raw[raw.length - 1] as Record<string, unknown>);
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  }, []);
+
   useEffect(() => {
     const found = activeShipments.find((s) => String(s.id) === shipmentId);
     setSelectedShipment(found ?? null);
-    setCheckpointType(found ? (STATUS_CHECKPOINT_MAP[found.status] ?? '') : '');
 
     if (!found) {
+      setCheckpointType('');
       setLocation('');
-    } else if (actorInfo?.role === ActorRole.Hub) {
+      return;
+    }
+
+    if (actorInfo?.role === ActorRole.Hub) {
       setLocation(actorInfo.location);
+      // Hub arriving at its own location → Hub; Hub dispatching from its own location → Transit
+      setCheckpointType(found.status === ShipmentStatus.InTransit ? 'Hub' : found.status === ShipmentStatus.AtHub ? 'Transit' : '');
     } else if (actorInfo?.role === ActorRole.Carrier) {
       if (found.status === ShipmentStatus.Created) {
+        // Initial pickup from sender
         setLocation(found.origin);
+        setCheckpointType('Pickup');
       } else if (found.status === ShipmentStatus.OutForDelivery) {
+        // Carrier confirmed out-for-delivery externally; record final delivery
         setLocation(found.destination);
+        setCheckpointType('Delivery');
       } else {
-        setLocation(actorInfo.location);
+        // InTransit or AtHub: need last checkpoint to decide
+        setCheckpointType('');
+        setLocation('');
+        (async () => {
+          const last = await fetchLastCheckpoint(found.id);
+          if (last?.actor.toLowerCase() === actorInfo.actorAddress.toLowerCase()) {
+            // Same carrier recorded last checkpoint → already picked up, heading to recipient
+            setCheckpointType('Delivery');
+            setLocation(found.destination);
+          } else {
+            // Different actor (hub) recorded last checkpoint → carrier is picking up at that hub
+            setCheckpointType('Transit');
+            setLocation(last?.location ?? '');
+          }
+        })();
       }
     } else {
       setLocation(found.origin);
+      setCheckpointType('');
     }
-  }, [shipmentId, activeShipments, actorInfo]);
+  }, [shipmentId, activeShipments, actorInfo, fetchLastCheckpoint]);
 
   const handleSubmit = async () => {
     if (!shipmentId || !location.trim() || !checkpointType) {

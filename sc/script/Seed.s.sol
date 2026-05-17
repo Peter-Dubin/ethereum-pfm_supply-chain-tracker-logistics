@@ -17,6 +17,10 @@ contract Seed is Script {
     uint256 constant RECIP2_KEY    = 0xdbda1821b80551c9d65939329250298aa3472ba22feea921c0cf5d620ea67b97;
     uint256 constant INSPECTOR_KEY = 0x2a871d0798f97d79848a013d4936a73bf4cc922c825d33c1cf7073dff6d409c6;
 
+    // UC-01 base timestamp: May 15, 2026 08:00 UTC (two days before test date)
+    // Realistic spacing: pickup at ~10 min, inter-hub transit ~1.5 h, last-mile ~1.5 h
+    uint256 constant UC01_BASE = 1778832000;
+
     function run() external {
         LogisticsTracker tracker = LogisticsTracker(vm.envAddress("CONTRACT_ADDRESS"));
 
@@ -25,10 +29,12 @@ contract Seed is Script {
         _approveActors(tracker);
         console.log("Phase 1 complete: 9 actors registered and approved.");
 
-        // ── PHASE 2 (future): _createShipments(tracker); ──────────────────────
-        // ── PHASE 3 (future): _recordCheckpoints(tracker); ────────────────────
-        // ── PHASE 4 (future): _reportIncidents(tracker); ──────────────────────
+        // ── PHASE 2: UC-01 — Standard Multi-Hub Electronics Delivery ──────────
+        _seedUC01(tracker);
+        console.log("Phase 2 complete: UC-01 seeded (Laptop Components x10, 7 checkpoints, Delivered).");
     }
+
+    // ─── Phase 1 helpers ──────────────────────────────────────────────────────
 
     function _registerActors(LogisticsTracker tracker) internal {
         vm.startBroadcast(SENDER1_KEY);
@@ -115,6 +121,79 @@ contract Seed is Script {
         tracker.approveActor(vm.addr(RECIP1_KEY));
         tracker.approveActor(vm.addr(RECIP2_KEY));
         tracker.approveActor(vm.addr(INSPECTOR_KEY));
+        vm.stopBroadcast();
+    }
+
+    // ─── Phase 2: UC-01 ───────────────────────────────────────────────────────
+
+    function _seedUC01(LogisticsTracker tracker) internal {
+        address recip1 = vm.addr(RECIP1_KEY);
+
+        // Step 1 — TechCorp S.L.: creates shipment (10:00)
+        vm.warp(UC01_BASE);
+        vm.startBroadcast(SENDER1_KEY);
+        tracker.createShipment(
+            recip1,
+            "Laptop Components (x10)",
+            "Parque Empresarial Las Rozas, Madrid",
+            "Barcelona Tech Campus, 22@ District",
+            false
+        );
+        vm.stopBroadcast();
+
+        // Step 2 — ExpressRide Courier: pickup at sender origin (10:10)
+        vm.warp(UC01_BASE + 630);
+        vm.startBroadcast(CARRIER1_KEY);
+        tracker.recordCheckpoint(1, "Parque Empresarial Las Rozas, Madrid", "Pickup", "Sealed box, 5 kg", 0);
+        tracker.updateShipmentStatus(1, LogisticsTracker.ShipmentStatus.InTransit);
+        vm.stopBroadcast();
+
+        // Step 3 — Hub Madrid Centro: package arrives (10:21)
+        vm.warp(UC01_BASE + 1255);
+        vm.startBroadcast(HUB1_KEY);
+        tracker.recordCheckpoint(1, "Calle Logistica 12, Getafe, Madrid", "Hub", "Sorted and ready", 0);
+        tracker.updateShipmentStatus(1, LogisticsTracker.ShipmentStatus.AtHub);
+        vm.stopBroadcast();
+
+        // Step 4 — Hub Madrid Centro: package departs (10:30)
+        vm.warp(UC01_BASE + 1800);
+        vm.startBroadcast(HUB1_KEY);
+        tracker.recordCheckpoint(1, "Calle Logistica 12, Getafe, Madrid", "Transit", "Loaded on Barcelona truck", 0);
+        tracker.updateShipmentStatus(1, LogisticsTracker.ShipmentStatus.InTransit);
+        vm.stopBroadcast();
+
+        // Step 5 — Hub Barcelona Norte: package arrives after ~1.5 h road transit (11:32)
+        vm.warp(UC01_BASE + 5526);
+        vm.startBroadcast(HUB2_KEY);
+        tracker.recordCheckpoint(1, "Av. Industrial 88, Montcada i Reixac, Barcelona", "Hub", "Received, forwarding to last-mile", 0);
+        tracker.updateShipmentStatus(1, LogisticsTracker.ShipmentStatus.AtHub);
+        vm.stopBroadcast();
+
+        // Step 6 — Hub Barcelona Norte: package departs to last-mile carrier (11:44)
+        vm.warp(UC01_BASE + 6288);
+        vm.startBroadcast(HUB2_KEY);
+        tracker.recordCheckpoint(1, "Av. Industrial 88, Montcada i Reixac, Barcelona", "Transit", "Handed to UrbanDeliver", 0);
+        tracker.updateShipmentStatus(1, LogisticsTracker.ShipmentStatus.InTransit);
+        vm.stopBroadcast();
+
+        // Step 7 — UrbanDeliver S.L.: last-mile pickup at hub (12:05)
+        vm.warp(UC01_BASE + 7548);
+        vm.startBroadcast(CARRIER2_KEY);
+        tracker.recordCheckpoint(1, "Av. Industrial 88, Montcada i Reixac, Barcelona", "Transit", "Picked up for last-mile delivery", 0);
+        // Status remains InTransit — Transit type does not advance the status
+        vm.stopBroadcast();
+
+        // Step 8 — UrbanDeliver S.L.: arrives and hands over at recipient (13:20)
+        vm.warp(UC01_BASE + 12057);
+        vm.startBroadcast(CARRIER2_KEY);
+        tracker.recordCheckpoint(1, "Barcelona Tech Campus, 22@ District", "Delivery", "Delivered to reception", 0);
+        tracker.updateShipmentStatus(1, LogisticsTracker.ShipmentStatus.OutForDelivery);
+        vm.stopBroadcast();
+
+        // Step 9 — Startup Innovations S.A.: digital delivery confirmation (13:30)
+        vm.warp(UC01_BASE + 12600);
+        vm.startBroadcast(RECIP1_KEY);
+        tracker.confirmDelivery(1);
         vm.stopBroadcast();
     }
 }

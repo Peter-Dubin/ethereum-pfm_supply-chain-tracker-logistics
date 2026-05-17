@@ -38,7 +38,7 @@ CONTRACT_ADDRESS="$CONTRACT_ADDRESS" PRIVATE_KEY="$ADMIN_KEY" \
   forge script script/Seed.s.sol \
   --rpc-url "$ANVIL_RPC" \
   --broadcast 2>&1 | grep -E "(Phase|Error|FAIL)" || true
-echo "      All actors registered and approved"
+echo "      Actors registered + UC-01 fully seeded (Delivered)"
 
 # 4. Start Next.js frontend
 echo "[4/4] Starting frontend..."

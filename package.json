@@ -1,0 +1,7 @@
+{
+  "name": "logistchain",
+  "private": true,
+  "scripts": {
+    "dev": "bash init-local.sh"
+  }
+}

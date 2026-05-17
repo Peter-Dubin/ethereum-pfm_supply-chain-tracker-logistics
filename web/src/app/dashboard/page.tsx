@@ -52,13 +52,16 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
 
   const loadShipments = useCallback(async () => {
-    if (!address || !actorInfo) return;
+    if (!address || (!actorInfo && !isAdmin)) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const contract = await getContract();
       const results: Shipment[] = [];
 
-      if (actorInfo.role === ActorRole.Carrier || actorInfo.role === ActorRole.Hub) {
+      if (isAdmin || actorInfo?.role === ActorRole.Carrier || actorInfo?.role === ActorRole.Hub) {
         const filter = contract.filters.ShipmentCreated();
         const events = await contract.queryFilter(filter);
         const seen = new Set<string>();
@@ -86,7 +89,7 @@ export default function DashboardPage() {
     } finally {
       setLoading(false);
     }
-  }, [address, actorInfo]);
+  }, [address, actorInfo, isAdmin]);
 
   useEffect(() => {
     if (!walletLoading && !isConnected) router.push('/');

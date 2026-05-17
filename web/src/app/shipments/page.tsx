@@ -24,7 +24,7 @@ const STATUS_FILTER_OPTIONS = [
 ];
 
 export default function ShipmentsPage() {
-  const { address, isConnected, actorInfo, isLoading: walletLoading } = useWallet();
+  const { address, isConnected, actorInfo, isAdmin, isLoading: walletLoading } = useWallet();
   const router = useRouter();
 
   const [shipments, setShipments] = useState<Shipment[]>([]);
@@ -32,13 +32,16 @@ export default function ShipmentsPage() {
   const [statusFilter, setStatusFilter] = useState('all');
 
   const loadShipments = useCallback(async () => {
-    if (!address || !actorInfo) return;
+    if (!address || (!actorInfo && !isAdmin)) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const contract = await getContract();
       const results: Shipment[] = [];
 
-      if (actorInfo.role === ActorRole.Carrier || actorInfo.role === ActorRole.Hub) {
+      if (isAdmin || actorInfo?.role === ActorRole.Carrier || actorInfo?.role === ActorRole.Hub) {
         const filter = contract.filters.ShipmentCreated();
         const events = await contract.queryFilter(filter);
         const seen = new Set<string>();
@@ -66,7 +69,7 @@ export default function ShipmentsPage() {
     } finally {
       setLoading(false);
     }
-  }, [address, actorInfo]);
+  }, [address, actorInfo, isAdmin]);
 
   useEffect(() => {
     if (!walletLoading && !isConnected) router.push('/');

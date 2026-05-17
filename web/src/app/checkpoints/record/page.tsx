@@ -183,6 +183,11 @@ function RecordCheckpointForm() {
       return;
     }
 
+    if (selectedShipment?.requiresColdChain && !temp.trim()) {
+      toast.error('Temperature is required for cold chain shipments');
+      return;
+    }
+
     const tempValue = temp.trim() ? Math.round(parseFloat(temp) * 10) : 0;
     if (temp.trim() && isNaN(tempValue)) {
       toast.error('Invalid temperature value');
@@ -367,7 +372,7 @@ function RecordCheckpointForm() {
             <div className="space-y-1.5">
               <Label htmlFor="temp" className="flex items-center gap-1.5">
                 <Thermometer className="size-4 text-sky-500" />
-                Temperature °C (optional)
+                Temperature °C {selectedShipment?.requiresColdChain ? '(required)' : '(optional)'}
               </Label>
               <Input
                 id="temp"

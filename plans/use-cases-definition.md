@@ -107,7 +107,7 @@ address inspector = 0xa0Ee7A142d267C1f36714E4a8F75612F20a79720; // Inspector Gar
 | 3 | Hub Barcelona Norte | Package arrives | Hub | **AtHub** | Av. Industrial 88 | 5.0°C | "Cold storage dock #3" |
 | 4 | ExpressRide Courier | Departs Hub BCN → Hub MAD | Transit | **InTransit** | Av. Industrial 88, Montcada | 5.5°C | "In transit to Madrid" |
 | 5 | Hub Madrid Centro | Package arrives | Hub | **AtHub** | Calle Logística 12 | 6.0°C | "Transferred to refrigerated van" |
-| 6 | ExpressRide Courier | En route to hospital | Transit | InTransit | A-4 motorway checkpoint | 7.0°C | "All within range" |
+| 6 | ExpressRide Courier | En route to hospital | Transit | InTransit | Calle Logística 12, Getafe, Madrid | 7.0°C | "All within range" |
 | 7 | ExpressRide Courier | Delivers to hospital | Delivery | **OutForDelivery** | Hospital Valle Verde, Alcorcón | 5.0°C | "Received by pharmacy staff" |
 | 8 | Hospital Valle Verde | Confirms delivery | — | **Delivered** | — | — | MetaMask signature |
 

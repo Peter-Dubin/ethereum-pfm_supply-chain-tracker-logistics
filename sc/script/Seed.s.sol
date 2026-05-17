@@ -21,6 +21,10 @@ contract Seed is Script {
     // Realistic spacing: pickup at ~10 min, inter-hub transit ~1.5 h, last-mile ~1.5 h
     uint256 constant UC01_BASE = 1778832000;
 
+    // UC-02 base timestamp: May 17, 2026 08:00 UTC (same day as test — in-progress scenario)
+    // Seeded up to step 5 (AtHub, Hub Madrid Centro) to simulate an active mid-journey cold chain shipment
+    uint256 constant UC02_BASE = 1779004800;
+
     function run() external {
         LogisticsTracker tracker = LogisticsTracker(vm.envAddress("CONTRACT_ADDRESS"));
 
@@ -32,6 +36,10 @@ contract Seed is Script {
         // ── PHASE 2: UC-01 — Standard Multi-Hub Electronics Delivery ──────────
         _seedUC01(tracker);
         console.log("Phase 2 complete: UC-01 seeded (Laptop Components x10, 7 checkpoints, Delivered).");
+
+        // ── PHASE 3: UC-02 — Medical Cold Chain Delivery (in-progress at mid-point) ──
+        _seedUC02(tracker);
+        console.log("Phase 3 complete: UC-02 seeded (COVID Vaccine Batch #V2024, 4 checkpoints, AtHub Madrid).");
     }
 
     // ─── Phase 1 helpers ──────────────────────────────────────────────────────
@@ -194,6 +202,52 @@ contract Seed is Script {
         vm.warp(UC01_BASE + 12600);
         vm.startBroadcast(RECIP1_KEY);
         tracker.confirmDelivery(1);
+        vm.stopBroadcast();
+    }
+
+    // ─── Phase 3: UC-02 ───────────────────────────────────────────────────────
+
+    function _seedUC02(LogisticsTracker tracker) internal {
+        address recip2 = vm.addr(RECIP2_KEY);
+
+        // Step 1 — MediSupply S.A.: creates cold chain shipment (08:00)
+        vm.warp(UC02_BASE);
+        vm.startBroadcast(SENDER2_KEY);
+        tracker.createShipment(
+            recip2,
+            "COVID Vaccine Batch #V2024",
+            "Zona Industrial Badalona, Barcelona",
+            "Calle Salud 3, Alcorcon, Madrid",
+            true
+        );
+        vm.stopBroadcast();
+
+        // Step 2 — ExpressRide Courier: pickup at sender (08:10)
+        vm.warp(UC02_BASE + 600);
+        vm.startBroadcast(CARRIER1_KEY);
+        tracker.recordCheckpoint(2, "Zona Industrial Badalona, Barcelona", "Pickup", "Insulated packaging verified", 40);
+        tracker.updateShipmentStatus(2, LogisticsTracker.ShipmentStatus.InTransit);
+        vm.stopBroadcast();
+
+        // Step 3 — Hub Barcelona Norte: package arrives, cold storage (09:00)
+        vm.warp(UC02_BASE + 3600);
+        vm.startBroadcast(HUB2_KEY);
+        tracker.recordCheckpoint(2, "Av. Industrial 88, Montcada i Reixac, Barcelona", "Hub", "Cold storage dock #3", 50);
+        tracker.updateShipmentStatus(2, LogisticsTracker.ShipmentStatus.AtHub);
+        vm.stopBroadcast();
+
+        // Step 4 — ExpressRide Courier: departs BCN hub toward MAD (09:30)
+        vm.warp(UC02_BASE + 5400);
+        vm.startBroadcast(CARRIER1_KEY);
+        tracker.recordCheckpoint(2, "Av. Industrial 88, Montcada i Reixac, Barcelona", "Transit", "In transit to Madrid", 55);
+        tracker.updateShipmentStatus(2, LogisticsTracker.ShipmentStatus.InTransit);
+        vm.stopBroadcast();
+
+        // Step 5 — Hub Madrid Centro: package arrives (12:30) — seed stops here (in-progress at mid-point)
+        vm.warp(UC02_BASE + 16200);
+        vm.startBroadcast(HUB1_KEY);
+        tracker.recordCheckpoint(2, "Calle Logistica 12, Getafe, Madrid", "Hub", "Transferred to refrigerated van", 60);
+        tracker.updateShipmentStatus(2, LogisticsTracker.ShipmentStatus.AtHub);
         vm.stopBroadcast();
     }
 }

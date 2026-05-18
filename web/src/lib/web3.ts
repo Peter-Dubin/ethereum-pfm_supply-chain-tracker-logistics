@@ -1,5 +1,5 @@
 import { ethers } from 'ethers';
-import { CONTRACT_CONFIG } from '@/contracts/config';
+import { CONTRACT_CONFIG, NETWORK_CONFIG } from '@/contracts/config';
 
 declare global {
   interface Window {
@@ -19,11 +19,18 @@ export function getProvider(): ethers.BrowserProvider {
   return new ethers.BrowserProvider(window.ethereum);
 }
 
+// MetaMask caches eth_call responses by block number and may return stale data after
+// Anvil restarts (same chain ID 31337, reset state). All reads bypass MetaMask by
+// going directly to the RPC node — only signing (writes) needs MetaMask.
+export function getReadProvider(): ethers.JsonRpcProvider {
+  return new ethers.JsonRpcProvider(NETWORK_CONFIG.anvil.rpcUrl);
+}
+
 export async function getContract(signer?: ethers.Signer): Promise<ethers.Contract> {
   if (signer) {
     return new ethers.Contract(CONTRACT_CONFIG.address, CONTRACT_CONFIG.abi, signer);
   }
-  return new ethers.Contract(CONTRACT_CONFIG.address, CONTRACT_CONFIG.abi, getProvider());
+  return new ethers.Contract(CONTRACT_CONFIG.address, CONTRACT_CONFIG.abi, getReadProvider());
 }
 
 export async function getSignerAndContract(): Promise<{

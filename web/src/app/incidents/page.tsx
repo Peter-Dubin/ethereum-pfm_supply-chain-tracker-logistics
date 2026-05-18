@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useWallet } from '@/hooks/useWallet';
 import { getContract, getSignerAndContract } from '@/lib/web3';
-import { Incident, IncidentType, INCIDENT_LABELS, parseIncident } from '@/types';
+import { Incident, IncidentType, INCIDENT_LABELS, parseIncident, Shipment, ShipmentStatus, parseShipment, ActorInfo, parseActorInfo } from '@/types';
 import { IncidentCard } from '@/components/IncidentCard';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -36,6 +36,65 @@ function IncidentsContent() {
   const [formDesc, setFormDesc] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
+  const [activeShipments, setActiveShipments] = useState<Shipment[]>([]);
+  const [locationOptions, setLocationOptions] = useState<ActorInfo[]>([]);
+
+  const loadActiveShipments = useCallback(async () => {
+    try {
+      const contract = await getContract();
+      const filter = contract.filters.ShipmentCreated();
+      const events = await contract.queryFilter(filter);
+      const seen = new Set<string>();
+      const results: Shipment[] = [];
+      for (const event of events) {
+        const id = ('args' in event && event.args ? event.args[0] : null) as bigint | null;
+        if (!id || seen.has(String(id))) continue;
+        seen.add(String(id));
+        try {
+          const raw = await contract.getShipment(id);
+          const s = parseShipment(raw as Record<string | number, unknown>);
+          if (
+            s.status !== ShipmentStatus.Delivered &&
+            s.status !== ShipmentStatus.Cancelled &&
+            s.status !== ShipmentStatus.Returned
+          ) {
+            results.push(s);
+          }
+        } catch { /* skip */ }
+      }
+      setActiveShipments(results);
+    } catch (err) {
+      console.error(err);
+    }
+  }, []);
+
+  const loadLocationOptions = useCallback(async () => {
+    try {
+      const contract = await getContract();
+      const filter = contract.filters.ActorRegistered();
+      const events = await contract.queryFilter(filter);
+      const seen = new Set<string>();
+      const seenLocs = new Set<string>();
+      const actors: ActorInfo[] = [];
+      for (const event of events) {
+        const addr = ('args' in event && event.args ? event.args[0] : null) as string | null;
+        if (!addr || seen.has(addr.toLowerCase())) continue;
+        seen.add(addr.toLowerCase());
+        try {
+          const raw = await contract.getActor(addr);
+          const info = parseActorInfo(raw as Record<string, unknown>);
+          if (info.isActive && info.location && !seenLocs.has(info.location)) {
+            seenLocs.add(info.location);
+            actors.push(info);
+          }
+        } catch { /* skip */ }
+      }
+      setLocationOptions(actors);
+    } catch (err) {
+      console.error(err);
+    }
+  }, []);
+
   const loadIncidents = useCallback(async () => {
     if (!address) return;
     setLoading(true);
@@ -63,8 +122,12 @@ function IncidentsContent() {
   }, [isConnected, walletLoading, router]);
 
   useEffect(() => {
-    if (isConnected && address) loadIncidents();
-  }, [isConnected, address, loadIncidents]);
+    if (isConnected && address) {
+      loadIncidents();
+      loadActiveShipments();
+      loadLocationOptions();
+    }
+  }, [isConnected, address, loadIncidents, loadActiveShipments, loadLocationOptions]);
 
   const handleReport = async () => {
     if (!formShipmentId || !formType || !formDesc.trim()) {
@@ -142,15 +205,56 @@ function IncidentsContent() {
             <CardDescription>Log an issue with an active shipment.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="space-y-1.5">
-              <Label htmlFor="form-shipment">Shipment ID</Label>
-              <Input
-                id="form-shipment"
-                placeholder="Enter shipment ID"
-                value={formShipmentId}
-                onChange={(e) => setFormShipmentId(e.target.value)}
-              />
-            </div>
+            {(() => {
+              const selectedShipment = activeShipments.find((s) => String(s.id) === formShipmentId) ?? null;
+              return (
+                <div className="space-y-1.5">
+                  <Label htmlFor="form-shipment">Shipment</Label>
+                  <Select
+                    value={formShipmentId}
+                    onValueChange={(v) => setFormShipmentId(v ?? '')}
+                    disabled={activeShipments.length === 0}
+                  >
+                    <SelectTrigger id="form-shipment" className="w-full">
+                      {selectedShipment ? (
+                        <div className="flex flex-col items-start gap-0.5 py-0.5">
+                          <span className="text-sm font-medium leading-tight">
+                            {locationOptions.find((a) => a.location === selectedShipment.origin)?.name ?? `Shipment #${String(selectedShipment.id)}`}
+                            <span className="font-normal text-muted-foreground ml-1.5 text-xs">(#{String(selectedShipment.id)})</span>
+                          </span>
+                          <span className="text-xs text-muted-foreground leading-tight">{selectedShipment.product}</span>
+                        </div>
+                      ) : (
+                        <span className="text-sm text-muted-foreground">
+                          {activeShipments.length === 0 ? 'No active shipments' : 'Select a shipment'}
+                        </span>
+                      )}
+                    </SelectTrigger>
+                    <SelectContent align="start">
+                      {activeShipments.map((s) => {
+                        const senderName = locationOptions.find((a) => a.location === s.origin)?.name ?? `Shipment #${String(s.id)}`;
+                        return (
+                          <SelectItem key={String(s.id)} value={String(s.id)} className="items-start py-2">
+                            <div className="flex flex-col gap-0.5">
+                              <span className="font-medium leading-tight">
+                                {senderName}
+                                <span className="font-normal text-muted-foreground ml-1.5 text-xs">(#{String(s.id)})</span>
+                              </span>
+                              <span className="text-xs text-muted-foreground leading-tight">{s.product}</span>
+                            </div>
+                          </SelectItem>
+                        );
+                      })}
+                    </SelectContent>
+                  </Select>
+                  {selectedShipment && (
+                    <p className="text-xs text-muted-foreground">
+                      {selectedShipment.origin} → {selectedShipment.destination}
+                    </p>
+                  )}
+                </div>
+              );
+            })()}
             <div className="space-y-1.5">
               <Label htmlFor="form-type">Incident Type</Label>
               <Select value={formType} onValueChange={(v) => setFormType(v ?? '')}>

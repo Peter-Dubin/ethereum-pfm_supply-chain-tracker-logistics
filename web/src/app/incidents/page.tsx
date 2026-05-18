@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useWallet } from '@/hooks/useWallet';
 import { getContract, getSignerAndContract } from '@/lib/web3';
-import { Incident, IncidentType, INCIDENT_LABELS, parseIncident, Shipment, ShipmentStatus, parseShipment, ActorInfo, parseActorInfo } from '@/types';
+import { Incident, IncidentType, INCIDENT_LABELS, parseIncident, Shipment, ShipmentStatus, parseShipment, ActorInfo, ActorRole, parseActorInfo } from '@/types';
 import { IncidentCard } from '@/components/IncidentCard';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -38,6 +38,8 @@ function IncidentsContent() {
 
   const [activeShipments, setActiveShipments] = useState<Shipment[]>([]);
   const [locationOptions, setLocationOptions] = useState<ActorInfo[]>([]);
+  const [actorNames, setActorNames] = useState<Map<string, string>>(new Map());
+  const [shipmentLabels, setShipmentLabels] = useState<Map<string, string>>(new Map());
 
   const loadActiveShipments = useCallback(async () => {
     try {
@@ -76,6 +78,7 @@ function IncidentsContent() {
       const seen = new Set<string>();
       const seenLocs = new Set<string>();
       const actors: ActorInfo[] = [];
+      const names = new Map<string, string>();
       for (const event of events) {
         const addr = ('args' in event && event.args ? event.args[0] : null) as string | null;
         if (!addr || seen.has(addr.toLowerCase())) continue;
@@ -83,6 +86,7 @@ function IncidentsContent() {
         try {
           const raw = await contract.getActor(addr);
           const info = parseActorInfo(raw as Record<string, unknown>);
+          names.set(addr.toLowerCase(), info.name);
           if (info.isActive && info.location && !seenLocs.has(info.location)) {
             seenLocs.add(info.location);
             actors.push(info);
@@ -90,6 +94,7 @@ function IncidentsContent() {
         } catch { /* skip */ }
       }
       setLocationOptions(actors);
+      setActorNames(names);
     } catch (err) {
       console.error(err);
     }
@@ -100,22 +105,56 @@ function IncidentsContent() {
     setLoading(true);
     try {
       const contract = await getContract();
-      const ids: bigint[] = await contract.getActorShipments(address);
-      const allIncidents: Incident[] = [];
-      for (const id of ids) {
-        const raw = await contract.getShipmentIncidents(id);
-        for (const r of raw as Record<string, unknown>[]) {
-          allIncidents.push(parseIncident(r));
-        }
+
+      // Shipments where this actor is sender/recipient
+      const myShipmentIds = new Set<string>(
+        ((await contract.getActorShipments(address)) as bigint[]).map((id) => String(id))
+      );
+
+      // All incidents on-chain via IncidentReported events
+      const filter = contract.filters.IncidentReported();
+      const events = await contract.queryFilter(filter);
+      const allIncidentIds = new Set<string>();
+      for (const event of events) {
+        const incidentId = ('args' in event && event.args ? event.args[0] : null) as bigint | null;
+        if (incidentId) allIncidentIds.add(String(incidentId));
       }
+
+      // Fetch each incident; keep if admin, reporter, or shipment participant
+      const allIncidents: Incident[] = [];
+      for (const idStr of allIncidentIds) {
+        try {
+          const raw = await contract.getIncident(BigInt(idStr));
+          const inc = parseIncident(raw as Record<string, unknown>);
+          const visible =
+            isAdmin ||
+            actorInfo?.role === ActorRole.Inspector ||
+            myShipmentIds.has(String(inc.shipmentId)) ||
+            inc.reporter.toLowerCase() === address.toLowerCase();
+          if (visible) allIncidents.push(inc);
+        } catch { /* skip */ }
+      }
+
       allIncidents.sort((a, b) => Number(b.timestamp - a.timestamp));
       setIncidents(allIncidents);
+
+      // Build shipment label map for the incidents we're showing
+      const labels = new Map<string, string>();
+      const uniqueShipmentIds = new Set(allIncidents.map((i) => String(i.shipmentId)));
+      for (const sid of uniqueShipmentIds) {
+        try {
+          const raw = await contract.getShipment(BigInt(sid));
+          const s = parseShipment(raw as Record<string | number, unknown>);
+          labels.set(sid, `Shpt. #${sid}: ${s.product}`);
+        } catch { /* skip */ }
+      }
+      setShipmentLabels(labels);
     } catch (err) {
       console.error(err);
     } finally {
       setLoading(false);
     }
-  }, [address]);
+  }, [address, isAdmin, actorInfo]);
 
   useEffect(() => {
     if (!walletLoading && !isConnected) router.push('/');
@@ -316,8 +355,12 @@ function IncidentsContent() {
               incident={inc}
               currentAddress={address}
               isAdmin={isAdmin}
+              isInspector={actorInfo?.role === ActorRole.Inspector}
               resolving={resolving === inc.id}
               onResolve={handleResolve}
+              shipmentLabel={shipmentLabels.get(String(inc.shipmentId))}
+              reporterName={actorNames.get(inc.reporter.toLowerCase())}
+              inspectHref={`/checkpoints/record?shipment=${String(inc.shipmentId)}`}
             />
           ))}
         </div>

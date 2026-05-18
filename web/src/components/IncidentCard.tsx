@@ -1,11 +1,12 @@
 'use client';
 
+import Link from 'next/link';
 import { Incident, IncidentType, INCIDENT_LABELS } from '@/types';
 import { bigIntToDateStr, shortenAddress } from '@/lib/web3';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { AlertTriangle, CheckCircle2, Loader2 } from 'lucide-react';
+import { Button, buttonVariants } from '@/components/ui/button';
+import { AlertTriangle, CheckCircle2, ClipboardCheck, Loader2 } from 'lucide-react';
 
 const TYPE_COLORS: Record<IncidentType, string> = {
   [IncidentType.Delay]: 'bg-yellow-100 text-yellow-800',
@@ -19,15 +20,20 @@ interface Props {
   incident: Incident;
   currentAddress?: string | null;
   isAdmin?: boolean;
+  isInspector?: boolean;
   resolving?: boolean;
   onResolve?: (id: bigint) => void;
+  shipmentLabel?: string;
+  reporterName?: string;
+  inspectHref?: string;
 }
 
-export function IncidentCard({ incident, currentAddress, isAdmin, resolving, onResolve }: Props) {
+export function IncidentCard({ incident, currentAddress, isAdmin, isInspector, resolving, onResolve, shipmentLabel, reporterName, inspectHref }: Props) {
   const canResolve =
     !incident.resolved &&
     onResolve &&
-    (isAdmin || currentAddress?.toLowerCase() === incident.reporter.toLowerCase());
+    (isAdmin || isInspector || currentAddress?.toLowerCase() === incident.reporter.toLowerCase());
+  const canInspect = !incident.resolved && isInspector && inspectHref;
 
   return (
     <Card className={incident.resolved ? 'opacity-60' : ''}>
@@ -43,7 +49,7 @@ export function IncidentCard({ incident, currentAddress, isAdmin, resolving, onR
                   {INCIDENT_LABELS[incident.incidentType]}
                 </Badge>
                 <span className="text-xs text-muted-foreground">
-                  Shipment #{String(incident.shipmentId)}
+                  {shipmentLabel ?? `Shipment #${String(incident.shipmentId)}`}
                 </span>
                 {incident.resolved && (
                   <Badge variant="secondary" className="text-xs flex items-center gap-1">
@@ -53,25 +59,36 @@ export function IncidentCard({ incident, currentAddress, isAdmin, resolving, onR
               </div>
               <p className="text-sm mt-1">{incident.description}</p>
               <p className="text-xs text-muted-foreground mt-1">
-                Reported by {shortenAddress(incident.reporter)} · {bigIntToDateStr(incident.timestamp)}
+                Reported by{' '}
+                {reporterName ? `${reporterName} (${shortenAddress(incident.reporter)})` : shortenAddress(incident.reporter)}
+                {' · '}
+                {bigIntToDateStr(incident.timestamp)}
               </p>
             </div>
           </div>
-          {canResolve && (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => onResolve(incident.id)}
-              disabled={resolving}
-            >
-              {resolving ? (
-                <Loader2 className="size-3 animate-spin mr-1" />
-              ) : (
-                <CheckCircle2 className="size-3 mr-1" />
-              )}
-              Resolve
-            </Button>
-          )}
+          <div className="flex items-center gap-2 shrink-0">
+            {canInspect && (
+              <Link href={inspectHref!} className={buttonVariants({ size: 'sm', variant: 'outline' })}>
+                <ClipboardCheck className="size-3 mr-1" />
+                Record Inspection
+              </Link>
+            )}
+            {canResolve && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => onResolve(incident.id)}
+                disabled={resolving}
+              >
+                {resolving ? (
+                  <Loader2 className="size-3 animate-spin mr-1" />
+                ) : (
+                  <CheckCircle2 className="size-3 mr-1" />
+                )}
+                Resolve
+              </Button>
+            )}
+          </div>
         </div>
       </CardContent>
     </Card>

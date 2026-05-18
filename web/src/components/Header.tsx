@@ -26,7 +26,7 @@ import {
 const NAV_LINKS = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: 'all' },
   { href: '/shipments', label: 'Shipments', icon: Package, roles: 'all' },
-  { href: '/checkpoints/record', label: 'Record Checkpoint', icon: Truck, roles: [ActorRole.Carrier, ActorRole.Hub] },
+  { href: '/checkpoints/record', label: 'Record Checkpoint', icon: Truck, roles: [ActorRole.Carrier, ActorRole.Hub, ActorRole.Inspector] },
   { href: '/incidents', label: 'Incidents', icon: AlertTriangle, roles: 'all' },
   { href: '/profile', label: 'Profile', icon: User, roles: 'all' },
 ] as const;

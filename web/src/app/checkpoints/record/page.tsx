@@ -109,7 +109,7 @@ function RecordCheckpointForm() {
 
   useEffect(() => {
     if (!walletLoading && actorInfo) {
-      if (actorInfo.role !== ActorRole.Carrier && actorInfo.role !== ActorRole.Hub) {
+      if (actorInfo.role !== ActorRole.Carrier && actorInfo.role !== ActorRole.Hub && actorInfo.role !== ActorRole.Inspector) {
         router.push('/dashboard');
         return;
       }
@@ -171,6 +171,14 @@ function RecordCheckpointForm() {
           }
         })();
       }
+    } else if (actorInfo?.role === ActorRole.Inspector) {
+      // Inspector always records at the hub where the shipment currently sits
+      setCheckpointType('Hub');
+      setLocation('');
+      (async () => {
+        const last = await fetchLastCheckpoint(found.id);
+        setLocation(last?.location ?? '');
+      })();
     } else {
       setLocation(found.origin);
       setCheckpointType('');

@@ -250,11 +250,16 @@ contract LogisticsTracker {
         return id;
     }
 
-    /// @notice Resolve an incident (admin or original reporter)
+    /// @notice Resolve an incident (admin, original reporter, or any active Inspector)
     function resolveIncident(uint256 _incidentId) external {
         Incident storage inc = incidents[_incidentId];
         require(!inc.resolved, "Already resolved");
-        require(msg.sender == admin || msg.sender == inc.reporter, "Not authorized");
+        require(
+            msg.sender == admin ||
+            msg.sender == inc.reporter ||
+            actors[msg.sender].role == ActorRole.Inspector,
+            "Not authorized"
+        );
         inc.resolved = true;
         emit IncidentResolved(_incidentId);
     }

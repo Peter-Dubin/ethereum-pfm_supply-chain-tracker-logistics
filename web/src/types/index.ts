@@ -65,6 +65,7 @@ export interface Incident {
   description: string;
   timestamp: bigint;
   resolved: boolean;
+  resolutionNote: string;
 }
 
 export const ROLE_LABELS: Record<ActorRole, string> = {
@@ -141,5 +142,6 @@ export function parseIncident(raw: Record<string, unknown>): Incident {
     description: raw.description as string,
     timestamp: raw.timestamp as bigint,
     resolved: raw.resolved as boolean,
+    resolutionNote: (raw.resolutionNote as string) ?? '',
   };
 }

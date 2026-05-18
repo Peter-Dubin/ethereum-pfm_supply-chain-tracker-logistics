@@ -25,6 +25,7 @@ contract Seed is Script {
     // Seeded up to step 5 (AtHub, Hub Madrid Centro) to simulate an active mid-journey cold chain shipment
     uint256 constant UC02_BASE = 1779004800;
 
+
     function run() external {
         LogisticsTracker tracker = LogisticsTracker(vm.envAddress("CONTRACT_ADDRESS"));
 
@@ -40,6 +41,7 @@ contract Seed is Script {
         // ── PHASE 3: UC-02 — Medical Cold Chain Delivery (in-progress at mid-point) ──
         _seedUC02(tracker);
         console.log("Phase 3 complete: UC-02 seeded (COVID Vaccine Batch #V2024, 4 checkpoints, AtHub Madrid).");
+
     }
 
     // ─── Phase 1 helpers ──────────────────────────────────────────────────────
@@ -250,4 +252,5 @@ contract Seed is Script {
         tracker.updateShipmentStatus(2, LogisticsTracker.ShipmentStatus.AtHub);
         vm.stopBroadcast();
     }
+
 }

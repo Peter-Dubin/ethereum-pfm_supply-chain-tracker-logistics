@@ -41,7 +41,7 @@ export default function ShipmentsPage() {
       const contract = await getContract();
       const results: Shipment[] = [];
 
-      if (isAdmin || actorInfo?.role === ActorRole.Carrier || actorInfo?.role === ActorRole.Hub) {
+      if (isAdmin || actorInfo?.role === ActorRole.Carrier || actorInfo?.role === ActorRole.Hub || actorInfo?.role === ActorRole.Inspector) {
         const filter = contract.filters.ShipmentCreated();
         const events = await contract.queryFilter(filter);
         const seen = new Set<string>();

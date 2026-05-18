@@ -61,7 +61,7 @@ export default function DashboardPage() {
       const contract = await getContract();
       const results: Shipment[] = [];
 
-      if (isAdmin || actorInfo?.role === ActorRole.Carrier || actorInfo?.role === ActorRole.Hub) {
+      if (isAdmin || actorInfo?.role === ActorRole.Carrier || actorInfo?.role === ActorRole.Hub || actorInfo?.role === ActorRole.Inspector) {
         const filter = contract.filters.ShipmentCreated();
         const events = await contract.queryFilter(filter);
         const seen = new Set<string>();
@@ -169,7 +169,7 @@ export default function DashboardPage() {
             <Plus className="size-4 mr-1.5" /> Create Shipment
           </Link>
         )}
-        {(role === ActorRole.Carrier || role === ActorRole.Hub) && (
+        {(role === ActorRole.Carrier || role === ActorRole.Hub || role === ActorRole.Inspector) && (
           <Link href="/checkpoints/record" className={cn(buttonVariants())}>
             <MapPin className="size-4 mr-1.5" /> Record Checkpoint
           </Link>

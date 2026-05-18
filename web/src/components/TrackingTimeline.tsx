@@ -33,12 +33,23 @@ export function TrackingTimeline({ checkpoints, incidents, currentStatus, actors
     );
   }
 
-  const incidentsByTime = incidents.reduce<Record<string, Incident[]>>((acc, inc) => {
-    const key = String(inc.timestamp);
-    if (!acc[key]) acc[key] = [];
-    acc[key].push(inc);
-    return acc;
-  }, {});
+  // Pre-assign each incident to exactly one checkpoint index so it never appears twice.
+  // Primary rule: first checkpoint whose timestamp strictly exceeds the incident timestamp
+  // (i.e. the incident happened before that checkpoint was recorded).
+  // Tie-break when all timestamps are equal (seeded same-second data): last Hub-type
+  // checkpoint, which is semantically where incidents are discovered/inspected.
+  const incidentAssignment = new Map<string, number>();
+  incidents.forEach((inc) => {
+    let assignIdx = checkpoints.findIndex((cp) => cp.timestamp > inc.timestamp);
+    if (assignIdx === -1) {
+      const lastHubIdx = checkpoints.reduce<number>(
+        (best, cp, i) => (cp.checkpointType === 'Hub' ? i : best),
+        -1
+      );
+      assignIdx = lastHubIdx !== -1 ? lastHubIdx : checkpoints.length - 1;
+    }
+    incidentAssignment.set(String(inc.id), assignIdx);
+  });
 
   const isTerminal =
     currentStatus === ShipmentStatus.Delivered ||
@@ -60,13 +71,9 @@ export function TrackingTimeline({ checkpoints, incidents, currentStatus, actors
               inc.shipmentId === cp.shipmentId
           );
 
-          const relatedIncidents = Object.entries(incidentsByTime)
-            .filter(([ts]) => {
-              const t = BigInt(ts);
-              const prev = checkpoints[idx - 1]?.timestamp ?? 0n;
-              return t >= prev && t <= cp.timestamp;
-            })
-            .flatMap(([, incs]) => incs);
+          const relatedIncidents = incidents.filter(
+            (inc) => incidentAssignment.get(String(inc.id)) === idx
+          );
 
           return (
             <div key={String(cp.id)} className="relative flex gap-4 pl-8">
@@ -134,16 +141,25 @@ export function TrackingTimeline({ checkpoints, incidents, currentStatus, actors
                 {relatedIncidents.map((inc) => (
                   <div
                     key={String(inc.id)}
-                    className="mt-2 flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2"
+                    className={`mt-2 flex items-start gap-2 rounded-md border px-3 py-2 ${
+                      inc.resolved
+                        ? 'border-green-200 bg-green-50'
+                        : 'border-destructive/30 bg-destructive/5'
+                    }`}
                   >
-                    <AlertTriangle className="size-3.5 text-destructive mt-0.5 shrink-0" />
+                    <AlertTriangle className={`size-3.5 mt-0.5 shrink-0 ${inc.resolved ? 'text-green-600' : 'text-destructive'}`} />
                     <div>
-                      <span className="text-xs font-medium text-destructive">
+                      <span className={`text-xs font-medium ${inc.resolved ? 'text-green-700' : 'text-destructive'}`}>
                         {INCIDENT_LABELS[inc.incidentType]}
                       </span>
                       <p className="text-xs text-muted-foreground">{inc.description}</p>
                       {inc.resolved && (
-                        <Badge variant="secondary" className="mt-1 text-xs">Resolved</Badge>
+                        <>
+                          <Badge variant="secondary" className="mt-1 text-xs">Resolved</Badge>
+                          {inc.resolutionNote && (
+                            <p className="text-xs text-green-700 mt-1 italic">{inc.resolutionNote}</p>
+                          )}
+                        </>
                       )}
                     </div>
                   </div>

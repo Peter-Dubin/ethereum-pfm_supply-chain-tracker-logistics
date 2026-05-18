@@ -405,7 +405,7 @@ contract LogisticsTrackingTest is Test {
         uint256 shipId = _createShipment(sender1, recip1, "Laptops");
         vm.prank(carrier1);
         uint256 incId = tracker.reportIncident(shipId, LogisticsTracker.IncidentType.Delay, "Traffic jam");
-        tracker.resolveIncident(incId); // admin resolves
+        tracker.resolveIncident(incId, ""); // admin resolves
         LogisticsTracker.Incident memory inc = tracker.getIncident(incId);
         assertTrue(inc.resolved);
     }
@@ -415,7 +415,7 @@ contract LogisticsTrackingTest is Test {
         vm.prank(carrier1);
         uint256 incId = tracker.reportIncident(shipId, LogisticsTracker.IncidentType.Delay, "Delay");
         vm.prank(carrier1);
-        tracker.resolveIncident(incId);
+        tracker.resolveIncident(incId, "");
         LogisticsTracker.Incident memory inc = tracker.getIncident(incId);
         assertTrue(inc.resolved);
     }
@@ -424,9 +424,9 @@ contract LogisticsTrackingTest is Test {
         uint256 shipId = _createShipment(sender1, recip1, "Laptops");
         vm.prank(carrier1);
         uint256 incId = tracker.reportIncident(shipId, LogisticsTracker.IncidentType.Delay, "Delay");
-        tracker.resolveIncident(incId);
+        tracker.resolveIncident(incId, "");
         vm.expectRevert("Already resolved");
-        tracker.resolveIncident(incId);
+        tracker.resolveIncident(incId, "");
     }
 
     function testUnauthorizedCannotResolveIncident() public {
@@ -435,7 +435,7 @@ contract LogisticsTrackingTest is Test {
         uint256 incId = tracker.reportIncident(shipId, LogisticsTracker.IncidentType.Delay, "Delay");
         vm.prank(recip1);
         vm.expectRevert("Not authorized");
-        tracker.resolveIncident(incId);
+        tracker.resolveIncident(incId, "");
     }
 
     function testGetShipmentIncidents() public {
@@ -652,7 +652,7 @@ contract LogisticsTrackingTest is Test {
         // 4. Inspector inspects and admin resolves
         vm.prank(inspector);
         tracker.recordCheckpoint(id, "Hub Madrid - QC Station", "Hub", "Inspector Garcia: screens OK, packaging replaced", 0);
-        tracker.resolveIncident(incId); // admin resolves
+        tracker.resolveIncident(incId, ""); // admin resolves
 
         assertTrue(tracker.getIncident(incId).resolved);
 

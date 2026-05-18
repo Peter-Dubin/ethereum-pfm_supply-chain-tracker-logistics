@@ -55,6 +55,7 @@ contract LogisticsTracker {
         string  description;
         uint256 timestamp;
         bool    resolved;
+        string  resolutionNote;
     }
 
     // ─── State ────────────────────────────────────────────────────────────────
@@ -243,7 +244,7 @@ contract LogisticsTracker {
         require(shipments[_shipmentId].id != 0, "Shipment not found");
 
         uint256 id = nextIncidentId++;
-        incidents[id] = Incident(id, _shipmentId, _incidentType, msg.sender, _description, block.timestamp, false);
+        incidents[id] = Incident(id, _shipmentId, _incidentType, msg.sender, _description, block.timestamp, false, "");
         shipments[_shipmentId].incidentIds.push(id);
 
         emit IncidentReported(id, _shipmentId, _incidentType);
@@ -251,7 +252,7 @@ contract LogisticsTracker {
     }
 
     /// @notice Resolve an incident (admin, original reporter, or any active Inspector)
-    function resolveIncident(uint256 _incidentId) external {
+    function resolveIncident(uint256 _incidentId, string memory _note) external {
         Incident storage inc = incidents[_incidentId];
         require(!inc.resolved, "Already resolved");
         require(
@@ -261,6 +262,7 @@ contract LogisticsTracker {
             "Not authorized"
         );
         inc.resolved = true;
+        inc.resolutionNote = _note;
         emit IncidentResolved(_incidentId);
     }
 

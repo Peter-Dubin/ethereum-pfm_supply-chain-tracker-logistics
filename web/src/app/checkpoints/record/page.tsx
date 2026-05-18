@@ -164,8 +164,14 @@ function RecordCheckpointForm() {
             // Same carrier recorded last checkpoint → already picked up, heading to recipient
             setCheckpointType('Delivery');
             setLocation(found.destination);
+          } else if (last?.checkpointType === 'Transit') {
+            // Another actor (hub) already dispatched the package with a Transit checkpoint →
+            // the carrier's next action is delivery at the destination, not another pickup
+            setCheckpointType('Delivery');
+            setLocation(found.destination);
           } else {
-            // Different actor (hub) recorded last checkpoint → carrier is picking up at that hub
+            // Another actor received the package at this location (Hub checkpoint) →
+            // carrier picks it up from there
             setCheckpointType('Transit');
             setLocation(last?.location ?? '');
           }

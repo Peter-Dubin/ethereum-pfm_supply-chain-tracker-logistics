@@ -194,11 +194,11 @@ function IncidentsContent() {
     }
   };
 
-  const handleResolve = async (incidentId: bigint) => {
+  const handleResolve = async (incidentId: bigint, note: string) => {
     setResolving(incidentId);
     try {
       const { contract } = await getSignerAndContract();
-      const tx = await contract.resolveIncident(incidentId);
+      const tx = await contract.resolveIncident(incidentId, note);
       toast.loading('Resolving…', { id: String(incidentId) });
       await tx.wait();
       toast.success('Incident resolved', { id: String(incidentId) });
